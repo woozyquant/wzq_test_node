@@ -1,1 +1,3 @@
 # wzq_test_node
+
+test comfyui custom plugin some func...
