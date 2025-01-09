@@ -9,6 +9,8 @@ from .wzq.a4 import myReroute3
 from .wzq.a4 import myReroutexxx
 from .wzq.a4 import myImageSize
 from .wzq.a4 import myEasySeed
+from .wzq.get_size_resize import ImageResizer
+from .wzq.Mask_Applier_and_Combiner import MaskApplierAndCombiner
 
 # （必填）填写 import的类名称，命名需要唯一，key或value与其他插件冲突可能引用不了。这是决定是否能引用的关键。
 # key(自定义):value(import的类名称)
@@ -20,7 +22,8 @@ NODE_CLASS_MAPPINGS = {
     "myReroutexxx": myReroutexxx,    
     "myImageSizexxx": myImageSize,        
     "myEasySeedxxx": myEasySeed,        
-
+    "ImageResizer": ImageResizer,
+    "MaskApplierAndCombiner": MaskApplierAndCombiner,
 }
 
 
@@ -29,7 +32,8 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
 
     "mySplit":"SplitSDGenerationData",
-
+    "ImageResizer": "🖼️Image Resizer",
+    "MaskApplierAndCombiner": "🎭Mask Applier and Combiner",
 }
 
 WEB_DIRECTORY = "./js"
