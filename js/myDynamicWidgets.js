@@ -1,13 +1,13 @@
 import { app } from "../../scripts/app.js";
 
 const seedNodes = ["myEasySeedxxx", ]
-const imageNodes = ["myImageSizexxx", ]
+const imageNodes = ["myImageSizexxx", "myCurrentTimexxx"]
 
 app.registerExtension({
 	name: "comfy.myTestNode.dynamicWidgets",
 
     async nodeCreated(node) {
-        if (["myImageSizexxx"].includes(node.comfyClass)) {
+        if (["myImageSizexxx", "myCurrentTimexxx"].includes(node.comfyClass)) {
 			const inputEl = document.createElement("textarea");
 			//inputEl.className = "comfy-multiline-input";
 			inputEl.readOnly = true

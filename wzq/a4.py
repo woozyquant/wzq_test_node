@@ -1,5 +1,6 @@
 import torch
 import random
+import datetime
 import comfy.model_management
 
 MAX_SEED_NUM = 1125899906842624
@@ -187,6 +188,7 @@ class myImageSize:
       result = (0, 0)
     return {"ui": {"text": "Width: "+str(width)+" , Height: "+str(height)}, "result": result}
 
+# #################################################################################  
     # 随机种
 class myEasySeed:
     @classmethod
@@ -210,3 +212,24 @@ class myEasySeed:
 
 # #################################################################################
 
+class myCurrentTime:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {"anything": (any_, )},
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("current_time",)
+    OUTPUT_NODE = True
+    FUNCTION = "get_current_time"
+
+    CATEGORY = "test_nodes📀/wzq"
+
+    def get_current_time(self, anything):
+        now = datetime.datetime.now()
+        current_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        result = (current_time,)
+        return {"ui": {"text": "Current Time: " + current_time}, "result": result}
+
+# #################################################################################
