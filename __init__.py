@@ -10,6 +10,8 @@ from .wzq.a4 import myReroutexxx
 from .wzq.a4 import myImageSize
 from .wzq.a4 import myEasySeed
 from .wzq.a4 import myCurrentTime
+from .wzq.a4 import myEmptyLatent
+from .wzq.a4 import myEmptyLatentQwen
 from .wzq.get_size_resize import ImageResizer
 from .wzq.Mask_Applier_and_Combiner import MaskApplierAndCombiner
 
@@ -24,6 +26,8 @@ NODE_CLASS_MAPPINGS = {
     "myImageSizexxx": myImageSize,        
     "myEasySeedxxx": myEasySeed,        
     "myCurrentTimexxx": myCurrentTime,
+    "myEmptyLatentxxx": myEmptyLatent,   
+    "myEmptyLatentQwenxxx": myEmptyLatentQwen,
     "ImageResizer": ImageResizer,
     "MaskApplierAndCombiner": MaskApplierAndCombiner,
 }
