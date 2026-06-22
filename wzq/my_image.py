@@ -26,7 +26,7 @@ class ImageResizer:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("resized_image",)
     FUNCTION = 'resize_image'
-    CATEGORY = 'Image Processing'
+    CATEGORY = 'test_nodes📀/wzq'
 
     def resize_image(self, image_a, image_b):
         ret_images = []
@@ -47,6 +47,44 @@ class ImageResizer:
             ret_images.append(resized_tensor_a)
         
         return (torch.cat(ret_images, dim=0),)
+        
+class ImageTileBatch:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "num_tiles": ("INT", {"default":4, "max": 64, "min":2, "step":1}),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("IMAGES",)
+    FUNCTION = "tile_image"
+
+    CATEGORY = "test_nodes📀/wzq"
+
+    def tile_image(self, image, num_tiles=6):
+        image = tensor2pil(image.squeeze(0))
+        img_width, img_height = image.size
+
+        num_rows = int(num_tiles ** 0.5)
+        num_cols = (num_tiles + num_rows - 1) // num_rows
+        tile_width = img_width // num_cols
+        tile_height = img_height // num_rows
+
+        tiles = []
+        for y in range(0, img_height, tile_height):
+            for x in range(0, img_width, tile_width):
+                tile = image.crop((x, y, x + tile_width, y + tile_height))
+                tiles.append(pil2tensor(tile))
+
+        tiles = torch.stack(tiles, dim=0).squeeze(1)
+
+        return (tiles, )
 
 #NODE_CLASS_MAPPINGS = {
 #    "ImageResizer": ImageResizer,

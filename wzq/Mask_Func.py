@@ -1,13 +1,20 @@
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 import torch
+import scipy
 
 def pil2tensor(image: Image) -> torch.Tensor:
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
 def tensor2pil(t_image: torch.Tensor) -> Image:
     return Image.fromarray(np.clip(255.0 * t_image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8))
+
+# PIL to Mask
+def pil2mask(image):
+    image_np = np.array(image.convert("L")).astype(np.float32) / 255.0
+    mask = torch.from_numpy(image_np)
+    return 1.0 - mask
 
 def mask_to_pil(mask) -> Image:
     if isinstance(mask, torch.Tensor):
@@ -42,7 +49,7 @@ class MaskApplierAndCombiner:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("combined_image",)
     FUNCTION = 'apply_masks_and_combine'
-    CATEGORY = 'Image Processing'
+    CATEGORY = "test_nodes📀/wzq"
 
     def apply_masks_and_combine(self, images, masks, feather_amount):
         if len(images) != len(masks):
@@ -90,6 +97,55 @@ class MaskApplierAndCombiner:
         combined_image_tensor = pil2tensor(base_image_pil.convert('RGB'))
         
         return (combined_image_tensor,)
+
+class Masking:
+
+    @staticmethod
+    def fill_region(image):
+        from scipy.ndimage import binary_fill_holes
+        image = image.convert("L")
+        binary_mask = np.array(image) > 0
+        filled_mask = binary_fill_holes(binary_mask)
+        filled_image = Image.fromarray(filled_mask.astype(np.uint8) * 255, mode="L")
+        return ImageOps.invert(filled_image.convert("RGB"))
+
+class Mask_Fill_Region:
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+                    "required": {
+                        "masks": ("MASK",),
+                    }
+                }
+
+    CATEGORY = "test_nodes📀/wzq"
+
+    RETURN_TYPES = ("MASK",)
+    RETURN_NAMES = ("MASKS",)
+
+    FUNCTION = "fill_region"
+
+    def fill_region(self, masks):
+        if masks.ndim > 3:
+            regions = []
+            for mask in masks:
+                mask_np = np.clip(255. * mask.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+                pil_image = Image.fromarray(mask_np, mode="L")
+                region_mask = Masking.fill_region(pil_image)
+                region_tensor = pil2mask(region_mask).unsqueeze(0).unsqueeze(1)
+                regions.append(region_tensor)
+            regions_tensor = torch.cat(regions, dim=0)
+            return (regions_tensor,)
+        else:
+            mask_np = np.clip(255. * masks.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+            pil_image = Image.fromarray(mask_np, mode="L")
+            region_mask = Masking.fill_region(pil_image)
+            region_tensor = pil2mask(region_mask).unsqueeze(0).unsqueeze(1)
+            return (region_tensor,)
 
 #NODE_CLASS_MAPPINGS = {
 #    "MaskApplierAndCombiner": MaskApplierAndCombiner,

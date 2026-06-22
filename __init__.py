@@ -10,8 +10,16 @@ from .wzq.a4 import myReroutexxx
 from .wzq.a4 import myImageSize
 from .wzq.a4 import myEasySeed
 from .wzq.a4 import myCurrentTime
-from .wzq.get_size_resize import ImageResizer
-from .wzq.Mask_Applier_and_Combiner import MaskApplierAndCombiner
+from .wzq.a4 import myEmptyLatent
+from .wzq.a4 import myEmptyLatentQwen
+from .wzq.a4 import myCheckStringEmpty
+from .wzq.a4 import myBatchCount
+from .wzq.my_image import ImageResizer
+from .wzq.my_image import ImageTileBatch
+from .wzq.Mask_Func import MaskApplierAndCombiner
+from .wzq.Mask_Func import Mask_Fill_Region
+from .wzq.my_lora_node import MyLoraLoaderModelOnly
+from .wzq.my_lora_node import MyLocalLoraOnlyGallery
 
 # （必填）填写 import的类名称，命名需要唯一，key或value与其他插件冲突可能引用不了。这是决定是否能引用的关键。
 # key(自定义):value(import的类名称)
@@ -24,8 +32,16 @@ NODE_CLASS_MAPPINGS = {
     "myImageSizexxx": myImageSize,        
     "myEasySeedxxx": myEasySeed,        
     "myCurrentTimexxx": myCurrentTime,
+    "myEmptyLatentxxx": myEmptyLatent,   
+    "myEmptyLatentQwenxxx": myEmptyLatentQwen,
     "ImageResizer": ImageResizer,
+    "myImageTiled":ImageTileBatch, 
     "MaskApplierAndCombiner": MaskApplierAndCombiner,
+    "myMaskFillHoles": Mask_Fill_Region,
+    "myLoraLoaderModelOnlyxxx": MyLoraLoaderModelOnly,
+    "myLocalLoraOnlyGalleryxxx": MyLocalLoraOnlyGallery,    
+    "myCheckStringEmptyxxx": myCheckStringEmpty,
+    "myBatchCount": myBatchCount,
 }
 
 
@@ -34,8 +50,9 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
 
     "mySplit":"SplitSDGenerationData",
-    "ImageResizer": "🖼️Image Resizer",
+    "ImageResizer": "Image Resizer",
     "MaskApplierAndCombiner": "🎭Mask Applier and Combiner",
+    "myLocalLoraOnlyGalleryxxx": "🖼️Local Lora Gallery",
 }
 
 WEB_DIRECTORY = "./js"
