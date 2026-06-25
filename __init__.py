@@ -12,6 +12,7 @@ from .wzq.a4 import myEasySeed
 from .wzq.a4 import myCurrentTime
 from .wzq.a4 import myEmptyLatent
 from .wzq.a4 import myEmptyLatentQwen
+from .wzq.a4 import mySize
 from .wzq.a4 import myCheckStringEmpty
 from .wzq.a4 import myBatchCount
 from .wzq.my_image import ImageResizer
@@ -34,6 +35,7 @@ NODE_CLASS_MAPPINGS = {
     "myCurrentTimexxx": myCurrentTime,
     "myEmptyLatentxxx": myEmptyLatent,   
     "myEmptyLatentQwenxxx": myEmptyLatentQwen,
+    "mySizexxx": mySize,
     "ImageResizer": ImageResizer,
     "myImageTiled":ImageTileBatch, 
     "MaskApplierAndCombiner": MaskApplierAndCombiner,

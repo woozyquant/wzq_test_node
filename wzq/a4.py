@@ -396,6 +396,73 @@ class myEmptyLatentQwen:
 
 
 # #################################################################################
+# 仅输出宽高的尺寸节点：根据分辨率比例 / 覆盖值 / 放大系数 / 向上取整倍数 计算最终的 width、height
+class mySize:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {
+            "resolution": ([
+                "1:1 square 1024x1024",
+                "3:4 portrait 896x1152",
+                "5:8 portrait 832x1216",
+                "9:16 portrait 768x1344",
+                "9:21 portrait 640x1536",
+                "4:3 landscape 1152x896",
+                "3:2 landscape 1216x832",
+                "16:9 landscape 1344x768",
+                "21:9 landscape 1536x640",
+            ], {"default": "1:1 square 1024x1024"}),
+            "width_override": ("INT", {"default": 0, "min": 0, "max": MAX_RESOLUTION, "step": 1}),
+            "height_override": ("INT", {"default": 0, "min": 0, "max": MAX_RESOLUTION, "step": 1}),
+            "swap_width_height": ("BOOLEAN", {"default": False}),
+            "upscale_factor": ("FLOAT", {"default": 1.0, "min": 0.01, "max": 16.0, "step": 0.01}),
+            "round_to_multiple": (["8", "16", "32", "64", "128", "256", "none"], {"default": "8"}),
+            }}
+
+    RETURN_TYPES = ("INT","INT",)
+    RETURN_NAMES = ("width","height",)
+    OUTPUT_NODE = True
+    FUNCTION = "execute"
+    CATEGORY = "test_nodes📀/wzq"
+
+    def execute(self, resolution, width_override=0, height_override=0, swap_width_height=False, upscale_factor=1.0, round_to_multiple="8"):
+        # 从形如 "1:1 square 1024x1024" 的字符串里解析出基准宽高
+        try:
+            size_part = resolution.split(" ")[-1]
+            base_w, base_h = size_part.split("x")
+            width = int(base_w)
+            height = int(base_h)
+        except Exception:
+            width = 1024
+            height = 1024
+
+        # 覆盖值优先（>0 时使用覆盖值作为基准）
+        width = width_override if width_override > 0 else width
+        height = height_override if height_override > 0 else height
+
+        # 应用放大系数
+        width = int(round(width * upscale_factor))
+        height = int(round(height * upscale_factor))
+
+        # 向上取整到指定倍数（none 表示不取整）
+        if round_to_multiple != "none":
+            multiple = int(round_to_multiple)
+            if multiple > 1:
+                width = ((width + multiple - 1) // multiple) * multiple
+                height = ((height + multiple - 1) // multiple) * multiple
+
+        # 如果启用宽高切换，则交换宽度和高度
+        if swap_width_height:
+            width, height = height, width
+
+        return {"ui": {"text": "Width: " + str(width) + " , Height: " + str(height)}, "result": (width, height,)}
+
+
+
+# #################################################################################
 class myCheckStringEmpty:
     def __init__(self):
         pass
