@@ -22,6 +22,9 @@ from .wzq.Mask_Func import Mask_Fill_Region
 from .wzq.my_lora_node import MyLoraLoaderModelOnly
 from .wzq.my_lora_node import MyLocalLoraOnlyGallery
 
+# 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
+from .wzq import server as _wzq_server  # noqa: F401
+
 # （必填）填写 import的类名称，命名需要唯一，key或value与其他插件冲突可能引用不了。这是决定是否能引用的关键。
 # key(自定义):value(import的类名称)
 NODE_CLASS_MAPPINGS = {

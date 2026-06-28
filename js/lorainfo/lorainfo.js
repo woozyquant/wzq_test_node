@@ -34,9 +34,27 @@ class RgthreeInfoDialog extends RgthreeDialog {
         const cssPromise = injectCss("/extensions/wzq_test_node/lorainfo/css/dialog_model_info.css");
         this.modelInfo = await this.getModelInfo(file);
         await cssPromise;
+        // 并行拉取 lora 文件大小，完成后刷新内容显示
+        this.fileSizeText = "";
+        this.fetchFileSize(file);
         this.setContent(this.getInfoContent());
         this.setTitle(((_a = this.modelInfo) === null || _a === void 0 ? void 0 : _a["name"]) || ((_b = this.modelInfo) === null || _b === void 0 ? void 0 : _b["file"]) || "Unknown");
         this.attachEvents();
+    }
+
+    async fetchFileSize(file) {
+        try {
+            const resp = await fetch(`/wzq/api/lora_size?file=${encodeURIComponent(file)}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data && data.status === 200 && typeof data.sizeBytes === "number") {
+                this.fileSizeText = formatFileSize(data.sizeBytes);
+                // 仅刷新内容，保留滚动位置等
+                this.setContent(this.getInfoContent());
+            }
+        } catch (err) {
+            console.error("[wzq] Failed to fetch lora file size:", err);
+        }
     }
 
     getCloseEventDetail() {
@@ -101,6 +119,32 @@ class RgthreeInfoDialog extends RgthreeDialog {
             if (!input) {
                 const fieldName = tr.dataset["fieldName"];
                 tr.classList.add("-rgthree-editing");
+
+                // 合并的 Strength Range 行：编辑时渲染两个输入框（min - max）
+                if (fieldName === "strengthRange") {
+                    const min = info.strengthMin != null ? info.strengthMin : "";
+                    const max = info.strengthMax != null ? info.strengthMax : "";
+                    const wrapper = $el("div", { style: "display:flex; align-items:center; gap:6px; padding:4px 8px;" });
+                    const minInput = $el('input[type="text"]', { value: String(min), placeholder: "min", style: "width:80px; padding:5px 8px; border:0; box-shadow:inset 1px 1px 5px 0 rgba(0,0,0,.5); background:#fff; color:#121212;" });
+                    const sep = $el("span", { text: "–", style: "color:#999;" });
+                    const maxInput = $el('input[type="text"]', { value: String(max), placeholder: "max", style: "width:80px; padding:5px 8px; border:0; box-shadow:inset 1px 1px 5px 0 rgba(0,0,0,.5); background:#fff; color:#121212;" });
+                    appendChildren(wrapper, [minInput, sep, maxInput]);
+                    appendChildren(empty(td), [wrapper]);
+                    minInput.focus();
+
+                    const commit = (save) => {
+                        const modified = saveStrengthRangeRow(info, tr, save, minInput, maxInput);
+                        this.modifiedModelData = this.modifiedModelData || modified;
+                    };
+                    const onKey = (e) => {
+                        if (e.key === "Enter") { commit(true); e.stopPropagation(); e.preventDefault(); }
+                        else if (e.key === "Escape") { commit(false); e.stopPropagation(); e.preventDefault(); }
+                    };
+                    minInput.addEventListener("keydown", onKey);
+                    maxInput.addEventListener("keydown", onKey);
+                    return;
+                }
+
                 const isTextarea = fieldName === "userNote";
                 const input = $el(`${isTextarea ? "textarea" : 'input[type="text"]'}`, {
                     value: td.textContent,
@@ -123,8 +167,15 @@ class RgthreeInfoDialog extends RgthreeDialog {
                 input.focus();
             }
             else if (target.nodeName.toLowerCase() === "button") {
-                const modified = saveEditableRow(info, tr, true);
-                this.modifiedModelData = this.modifiedModelData || modified;
+                const fieldName = tr.dataset["fieldName"];
+                if (fieldName === "strengthRange") {
+                    const inputs = td.querySelectorAll("input");
+                    const modified = saveStrengthRangeRow(info, tr, true, inputs[0], inputs[1]);
+                    this.modifiedModelData = this.modifiedModelData || modified;
+                } else {
+                    const modified = saveEditableRow(info, tr, true);
+                    this.modifiedModelData = this.modifiedModelData || modified;
+                }
             }
             e === null || e === void 0 ? void 0 : e.preventDefault();
             e === null || e === void 0 ? void 0 : e.stopPropagation();
@@ -132,7 +183,7 @@ class RgthreeInfoDialog extends RgthreeDialog {
     }
 
     getInfoContent() {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _w, _x, _y;
         const info = this.modelInfo || {};
         const civitaiLink = (_a = info.links) === null || _a === void 0 ? void 0 : _a.find((i) => i.includes("civitai.com/models"));
         const html = `
@@ -145,6 +196,7 @@ class RgthreeInfoDialog extends RgthreeDialog {
 
       <table class="rgthree-info-table">
         ${infoTableRow("File", info.file || "")}
+        ${infoTableRow("File Size", this.fileSizeText || "")}
         ${infoTableRow("Hash (sha256)", info.sha256 || "")}
         ${civitaiLink
             ? infoTableRow("Civitai", `<a href="${civitaiLink}" target="_blank">${logoCivitai}View on Civitai</a>`)
@@ -170,8 +222,7 @@ class RgthreeInfoDialog extends RgthreeDialog {
         ${!((_p = (_o = info.raw) === null || _o === void 0 ? void 0 : _o.metadata) === null || _p === void 0 ? void 0 : _p.ss_clip_skip) || ((_r = (_q = info.raw) === null || _q === void 0 ? void 0 : _q.metadata) === null || _r === void 0 ? void 0 : _r.ss_clip_skip) == "None"
             ? ""
             : infoTableRow("Clip Skip", (_t = (_s = info.raw) === null || _s === void 0 ? void 0 : _s.metadata) === null || _t === void 0 ? void 0 : _t.ss_clip_skip)}
-        ${infoTableRow("Strength Min", (_u = info.strengthMin) !== null && _u !== void 0 ? _u : "", "The recommended minimum strength, In the Power Lora Loader node, strength will signal when it is below this threshold.", "strengthMin")}
-        ${infoTableRow("Strength Max", (_v = info.strengthMax) !== null && _v !== void 0 ? _v : "", "The recommended maximum strength. In the Power Lora Loader node, strength will signal when it is above this threshold.", "strengthMax")}
+        ${infoTableRow("Strength Range", formatStrengthRange(info.strengthMin, info.strengthMax), "The recommended strength range. In the Power Lora Loader node, strength will signal when it is outside this range.", "strengthRange")}
         ${""}
         ${infoTableRow("Additional Notes", (_w = info.userNote) !== null && _w !== void 0 ? _w : "", "Additional notes you'd like to keep and reference in the info dialog.", "userNote")}
 
@@ -315,4 +366,74 @@ function saveEditableRow(info, tr, saving = true) {
 
 function imgInfoField(label, value) {
     return value != null ? `<span>${label ? `<label>${label} </label>` : ""}${value}</span>` : "";
+}
+
+/**
+ * 将 strengthMin / strengthMax 合并展示为 "min – max" 形式。
+ * 两者都为空时返回空串；只有一个时单独显示该值。
+ */
+function formatStrengthRange(strengthMin, strengthMax) {
+    const hasMin = strengthMin != null && strengthMin !== "";
+    const hasMax = strengthMax != null && strengthMax !== "";
+    if (hasMin && hasMax) {
+        return `${formatStrengthValue(strengthMin)} – ${formatStrengthValue(strengthMax)}`;
+    }
+    if (hasMin) return formatStrengthValue(strengthMin);
+    if (hasMax) return formatStrengthValue(strengthMax);
+    return "";
+}
+
+/** 把数值格式化为两位小数字符串。 */
+function formatStrengthValue(value) {
+    const num = Number(value);
+    if (Number.isNaN(num)) return String(value);
+    return (Math.round(num * 100) / 100).toFixed(2);
+}
+
+/** 把字节数格式化为人类可读的大小，如 "144.32 MB"。 */
+function formatFileSize(sizeBytes) {
+    if (sizeBytes == null || Number.isNaN(Number(sizeBytes))) return "";
+    const bytes = Number(sizeBytes);
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ["KB", "MB", "GB", "TB"];
+    let value = bytes / 1024;
+    let unitIdx = 0;
+    while (value >= 1024 && unitIdx < units.length - 1) {
+        value /= 1024;
+        unitIdx++;
+    }
+    return `${value.toFixed(2)} ${units[unitIdx]}`;
+}
+
+/**
+ * 保存合并后的 Strength Range 行。
+ * 将两个输入框的值写回 info.strengthMin / info.strengthMax，
+ * 并通过 savePartialInfo 一次性提交两个字段。
+ */
+function saveStrengthRangeRow(info, tr, saving = true, minInput, maxInput) {
+    let minVal = info.strengthMin != null ? info.strengthMin : "";
+    let maxVal = info.strengthMax != null ? info.strengthMax : "";
+    let modified = false;
+    if (saving) {
+        minVal = minInput ? minInput.value.trim() : "";
+        maxVal = maxInput ? maxInput.value.trim() : "";
+        if (minVal !== "" && Number.isNaN(Number(minVal))) {
+            alert("You must enter a number into the Strength Range (min) field.");
+            return false;
+        }
+        if (maxVal !== "" && Number.isNaN(Number(maxVal))) {
+            alert("You must enter a number into the Strength Range (max) field.");
+            return false;
+        }
+        minVal = minVal !== "" ? (Math.round(Number(minVal) * 100) / 100).toFixed(2) : "";
+        maxVal = maxVal !== "" ? (Math.round(Number(maxVal) * 100) / 100).toFixed(2) : "";
+        info.strengthMin = minVal;
+        info.strengthMax = maxVal;
+        LORA_INFO_SERVICE.savePartialInfo(info.file, { strengthMin: minVal, strengthMax: maxVal });
+        modified = true;
+    }
+    tr.classList.remove("-rgthree-editing");
+    const td = query("td:nth-child(2)", tr);
+    appendChildren(empty(td), [$el("span", { text: formatStrengthRange(minVal, maxVal) })]);
+    return modified;
 }
