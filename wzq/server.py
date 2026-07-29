@@ -10,6 +10,12 @@ from server import PromptServer
 import folder_paths
 
 
+@PromptServer.instance.routes.get("/wzq/api/loras")
+async def api_get_loras(request):
+    """Return the current LoRA list for the dynamic loader UI."""
+    return web.json_response({"loras": folder_paths.get_filename_list("loras")})
+
+
 @PromptServer.instance.routes.get("/wzq/api/lora_size")
 async def api_get_lora_size(request):
     """返回 lora 文件的大小（字节数）。

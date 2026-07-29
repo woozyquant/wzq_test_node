@@ -20,6 +20,7 @@ from .wzq.my_image import ImageTileBatch
 from .wzq.Mask_Func import MaskApplierAndCombiner
 from .wzq.Mask_Func import Mask_Fill_Region
 from .wzq.my_lora_node import MyLoraLoaderModelOnly
+from .wzq.my_lora_node import MyMultiLoraLoaderModelOnly
 from .wzq.my_lora_node import MyLocalLoraOnlyGallery
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
@@ -44,7 +45,8 @@ NODE_CLASS_MAPPINGS = {
     "MaskApplierAndCombiner": MaskApplierAndCombiner,
     "myMaskFillHoles": Mask_Fill_Region,
     "myLoraLoaderModelOnlyxxx": MyLoraLoaderModelOnly,
-    "myLocalLoraOnlyGalleryxxx": MyLocalLoraOnlyGallery,    
+    "myMultiLoraLoaderModelOnlyxxx": MyMultiLoraLoaderModelOnly,
+    "myLocalLoraOnlyGalleryxxx": MyLocalLoraOnlyGallery,
     "myCheckStringEmptyxxx": myCheckStringEmpty,
     "myBatchCount": myBatchCount,
 }
@@ -54,6 +56,7 @@ NODE_CLASS_MAPPINGS = {
 # key(自定义):value(ui显示的名称)
 NODE_DISPLAY_NAME_MAPPINGS = {
 
+    "myMultiLoraLoaderModelOnlyxxx": "Multi Lora Loader (Model Only)",
     "mySplit":"SplitSDGenerationData",
     "ImageResizer": "Image Resizer",
     "MaskApplierAndCombiner": "🎭Mask Applier and Combiner",
