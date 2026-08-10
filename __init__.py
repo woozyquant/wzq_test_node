@@ -22,6 +22,8 @@ from .wzq.Mask_Func import Mask_Fill_Region
 from .wzq.my_lora_node import MyLoraLoaderModelOnly
 from .wzq.my_lora_node import MyMultiLoraLoaderModelOnly
 from .wzq.my_lora_node import MyLocalLoraOnlyGallery
+from .wzq.canvas_extend import WZQCanvasExtend
+from .wzq.image_loader import WZQImageLoader
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
 from .wzq import server as _wzq_server  # noqa: F401
@@ -40,7 +42,7 @@ NODE_CLASS_MAPPINGS = {
     "myEmptyLatentxxx": myEmptyLatent,   
     "myEmptyLatentQwenxxx": myEmptyLatentQwen,
     "mySizexxx": mySize,
-    "ImageResizer": ImageResizer,
+    "myImageResizer": ImageResizer,
     "myImageTiled":ImageTileBatch, 
     "MaskApplierAndCombiner": MaskApplierAndCombiner,
     "myMaskFillHoles": Mask_Fill_Region,
@@ -49,6 +51,8 @@ NODE_CLASS_MAPPINGS = {
     "myLocalLoraOnlyGalleryxxx": MyLocalLoraOnlyGallery,
     "myCheckStringEmptyxxx": myCheckStringEmpty,
     "myBatchCount": myBatchCount,
+    "myWZQCanvasExtend": WZQCanvasExtend,
+    "WZQImageLoader": WZQImageLoader,
 }
 
 
@@ -61,6 +65,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ImageResizer": "Image Resizer",
     "MaskApplierAndCombiner": "🎭Mask Applier and Combiner",
     "myLocalLoraOnlyGalleryxxx": "🖼️Local Lora Gallery",
+    "WZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
+    "myWZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
+    "WZQImageLoader": "WZQ 图像加载器",
 }
 
 WEB_DIRECTORY = "./js"
