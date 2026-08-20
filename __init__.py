@@ -24,9 +24,15 @@ from .wzq.my_lora_node import MyMultiLoraLoaderModelOnly
 from .wzq.my_lora_node import MyLocalLoraOnlyGallery
 from .wzq.canvas_extend import WZQCanvasExtend
 from .wzq.image_loader import WZQImageLoader
+from .wzq.minimax_h3_prompt import (
+    WZQMiniMaxH3MediaInput,
+    WZQMiniMaxH3MediaOutput,
+    WZQMiniMaxH3Prompt,
+)
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
 from .wzq import server as _wzq_server  # noqa: F401
+from . import minimax_h3_prompt_optimizer as _minimax_h3_prompt_optimizer  # noqa: F401
 
 # （必填）填写 import的类名称，命名需要唯一，key或value与其他插件冲突可能引用不了。这是决定是否能引用的关键。
 # key(自定义):value(import的类名称)
@@ -53,6 +59,9 @@ NODE_CLASS_MAPPINGS = {
     "myBatchCount": myBatchCount,
     "myWZQCanvasExtend": WZQCanvasExtend,
     "WZQImageLoader": WZQImageLoader,
+    "WZQMiniMaxH3Prompt": WZQMiniMaxH3Prompt,
+    "WZQMiniMaxH3MediaInput": WZQMiniMaxH3MediaInput,
+    "WZQMiniMaxH3MediaOutput": WZQMiniMaxH3MediaOutput,
 }
 
 
@@ -68,6 +77,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
     "myWZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
     "WZQImageLoader": "WZQ 图像加载器",
+    "WZQMiniMaxH3Prompt": "MiniMax-H3 Prompt (WZQ)",
+    "WZQMiniMaxH3MediaInput": "MiniMax-H3 Media Input (WZQ)",
+    "WZQMiniMaxH3MediaOutput": "MiniMax-H3 Media Output (WZQ)",
 }
 
 WEB_DIRECTORY = "./js"

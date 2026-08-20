@@ -66,6 +66,18 @@ def _safe_file(source: str, relative_name: str) -> str | None:
     return candidate
 
 
+def _safe_folder(source: str, relative_folder: str) -> str | None:
+    base = os.path.realpath(_directory(source))
+    relative_folder = (relative_folder or "").replace("/", os.sep)
+    candidate = os.path.realpath(os.path.join(base, relative_folder))
+    try:
+        if os.path.commonpath((base, candidate)) != base:
+            return None
+    except ValueError:
+        return None
+    return candidate if os.path.isdir(candidate) else None
+
+
 def _annotated_path(name: str) -> str | None:
     name = _normalise_annotation(name)
     try:
@@ -109,23 +121,50 @@ async def wzq_image_loader_files(request):
     if source not in ("input", "output"):
         return web.json_response({"error": "invalid source"}, status=400)
     base = _directory(source)
+    requested_folder = request.rel_url.query.get("folder", "").strip("/\\")
+    current = _safe_folder(source, requested_folder)
+    if current is None:
+        return web.json_response({"error": "invalid folder"}, status=400)
+
+    current_folder = os.path.relpath(current, base).replace("\\", "/")
+    if current_folder == ".":
+        current_folder = ""
+    folders = []
     files = []
-    for root, _, names in os.walk(base):
-        for name in names:
-            if Path(name).suffix.lower() not in IMAGE_EXTENSIONS:
+    try:
+        entries = list(os.scandir(current))
+    except OSError as error:
+        return web.json_response({"error": str(error)}, status=500)
+
+    for entry in entries:
+        relative_name = os.path.relpath(entry.path, base).replace("\\", "/")
+        try:
+            if entry.is_dir(follow_symlinks=False):
+                folders.append({"name": entry.name, "path": relative_name})
                 continue
-            path = os.path.join(root, name)
-            try:
-                stat = os.stat(path)
-            except OSError:
+            if not entry.is_file(follow_symlinks=False):
                 continue
+            if Path(entry.name).suffix.lower() not in IMAGE_EXTENSIONS:
+                continue
+            stat = entry.stat(follow_symlinks=False)
             files.append({
-                "name": os.path.relpath(path, base).replace("\\", "/"),
+                "name": relative_name,
+                "display_name": entry.name,
                 "size": stat.st_size,
                 "mtime": stat.st_mtime,
             })
+        except OSError:
+            continue
+
+    folders.sort(key=lambda item: item["name"].lower())
     files.sort(key=lambda item: (-item["mtime"], item["name"].lower()))
-    return web.json_response(files)
+    parent = current_folder.rsplit("/", 1)[0] if "/" in current_folder else ""
+    return web.json_response({
+        "folder": current_folder,
+        "parent": parent,
+        "folders": folders,
+        "files": files,
+    })
 
 
 @routes.get("/wzq/image-loader/thumb")

@@ -292,11 +292,23 @@ class ImageLoaderGallery {
     }
 
     async openFolder(source) {
-        let files;
-        try {
-            const response = await api.fetchApi(`/wzq/image-loader/files?source=${source}`);
+        let files = [];
+        let folders = [];
+        let currentFolder = "";
+        let parentFolder = "";
+        const fetchFolder = async (folder = "") => {
+            const response = await api.fetchApi(
+                `/wzq/image-loader/files?source=${source}&folder=${encodeURIComponent(folder)}`,
+            );
             if (!response.ok) throw new Error(await response.text());
-            files = await response.json();
+            const data = await response.json();
+            files = Array.isArray(data.files) ? data.files : [];
+            folders = Array.isArray(data.folders) ? data.folders : [];
+            currentFolder = String(data.folder || "");
+            parentFolder = String(data.parent || "");
+        };
+        try {
+            await fetchFolder("");
         } catch (error) {
             notify(`读取 ${source} 目录失败：${error.message || error}`);
             return;
@@ -309,12 +321,20 @@ class ImageLoaderGallery {
         const header = document.createElement("div");
         header.style.cssText = "display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border-color);";
         header.innerHTML = `<strong>从 .${source} 目录选择</strong>`;
+        const backButton = button("← 上级", "返回上级文件夹");
+        backButton.style.width = "auto";
+        const pathLabel = document.createElement("div");
+        pathLabel.style.cssText = "max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--descrip-text);font-size:12px;";
+        header.append(backButton, pathLabel);
         const search = document.createElement("input");
         search.placeholder = "搜索文件名...";
         search.style.cssText = "margin-left:auto;width:240px;padding:6px 9px;background:var(--comfy-input-bg);color:var(--input-text);border:1px solid var(--border-color);border-radius:5px;";
         header.appendChild(search);
         const gallery = document.createElement("div");
-        gallery.style.cssText = "flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,160px);grid-auto-rows:160px;justify-content:start;align-content:start;gap:6px;padding:8px;";
+        gallery.style.cssText = "flex:1;min-height:0;overflow:auto;position:relative;";
+        const virtualContent = document.createElement("div");
+        virtualContent.style.cssText = "position:relative;width:100%;min-height:100%;";
+        gallery.appendChild(virtualContent);
         const footer = document.createElement("div");
         footer.style.cssText = "display:flex;gap:8px;align-items:center;padding:9px 12px;border-top:1px solid var(--border-color);";
         const selection = new Set();
@@ -331,37 +351,152 @@ class ImageLoaderGallery {
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
 
-        const visibleFiles = () => files.filter((file) => file.name.toLowerCase().includes(search.value.trim().toLowerCase()));
-        const updateCount = () => { count.textContent = `已选择 ${selection.size} 张 / 共 ${files.length} 张`; };
-        const renderFiles = () => {
-            gallery.replaceChildren();
-            for (const file of visibleFiles()) {
-                const card = document.createElement("div");
-                card.style.cssText = `position:relative;overflow:hidden;background:#333;border:2px solid ${selection.has(file.name) ? "#69ce6d" : "#555"};border-radius:5px;cursor:pointer;`;
-                const image = document.createElement("img");
-                image.loading = "lazy";
-                image.draggable = false;
-                image.src = thumbUrl(annotated(file.name, source));
-                image.style.cssText = "width:100%;height:100%;object-fit:contain;display:block;";
-                const label = document.createElement("div");
-                label.textContent = file.name;
-                label.title = file.name;
-                label.style.cssText = "position:absolute;left:0;right:0;bottom:0;padding:4px 6px;background:rgba(0,0,0,.72);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
-                card.append(image, label);
-                card.onclick = () => {
-                    if (this.isSingle) selection.clear();
-                    selection.has(file.name) ? selection.delete(file.name) : selection.add(file.name);
-                    renderFiles();
+        const searchValue = () => search.value.trim().toLowerCase();
+        const visibleFiles = () => files.filter((file) => String(file.display_name || file.name).toLowerCase().includes(searchValue()));
+        const visibleFolders = () => folders.filter((folder) => folder.name.toLowerCase().includes(searchValue()));
+        const updatePath = () => {
+            pathLabel.textContent = currentFolder ? `/${currentFolder}` : "/";
+            pathLabel.title = `.${source}/${currentFolder}`;
+            backButton.disabled = !currentFolder;
+            backButton.style.opacity = currentFolder ? "1" : ".4";
+            backButton.style.cursor = currentFolder ? "pointer" : "default";
+        };
+        const updateCount = () => {
+            count.textContent = `已选择 ${selection.size} 张 / 当前目录 ${files.length} 张，${folders.length} 个文件夹`;
+        };
+        const CARD_SIZE = 160;
+        const CARD_GAP = 6;
+        const GRID_PADDING = 8;
+        const OVERSCAN_ROWS = 2;
+        let filteredItems = [];
+        let galleryRenderRaf = null;
+
+        const positionCard = (card, index, columns) => {
+            const column = index % columns;
+            const row = Math.floor(index / columns);
+            card.style.position = "absolute";
+            card.style.left = `${GRID_PADDING + column * (CARD_SIZE + CARD_GAP)}px`;
+            card.style.top = `${GRID_PADDING + row * (CARD_SIZE + CARD_GAP)}px`;
+            card.style.width = `${CARD_SIZE}px`;
+            card.style.height = `${CARD_SIZE}px`;
+            card.style.boxSizing = "border-box";
+        };
+
+        const createFolderCard = (folder) => {
+            const card = document.createElement("div");
+            card.style.cssText = "overflow:hidden;background:#303030;border:2px solid #555;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:filter .12s ease;";
+            const icon = document.createElement("div");
+            icon.textContent = "📁";
+            icon.style.cssText = "font-size:72px;line-height:1;transform:translateY(-5px);";
+            const label = document.createElement("div");
+            label.textContent = folder.name;
+            label.title = folder.path;
+            label.style.cssText = "position:absolute;left:0;right:0;bottom:0;padding:5px 6px;background:rgba(0,0,0,.72);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;";
+            card.append(icon, label);
+            card.onmouseenter = () => { card.style.filter = "brightness(1.15)"; };
+            card.onmouseleave = () => { card.style.filter = ""; };
+            card.onclick = async () => {
+                try {
+                    await fetchFolder(folder.path);
+                    search.value = "";
+                    rebuildItems();
+                    updatePath();
                     updateCount();
-                };
-                gallery.appendChild(card);
+                } catch (error) {
+                    notify(`读取文件夹失败：${error.message || error}`);
+                }
+            };
+            return card;
+        };
+
+        const createFileCard = (file) => {
+            const card = document.createElement("div");
+            card.style.cssText = `overflow:hidden;background:#333;border:2px solid ${selection.has(file.name) ? "#69ce6d" : "#555"};border-radius:5px;cursor:pointer;transition:filter .12s ease;`;
+            const image = document.createElement("img");
+            image.loading = "lazy";
+            image.draggable = false;
+            image.src = thumbUrl(annotated(file.name, source));
+            image.style.cssText = "width:100%;height:100%;object-fit:contain;display:block;";
+            const label = document.createElement("div");
+            label.textContent = file.display_name || file.name.split("/").pop();
+            label.title = file.name;
+            label.style.cssText = "position:absolute;left:0;right:0;bottom:0;padding:4px 6px;background:rgba(0,0,0,.72);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+            card.append(image, label);
+            card.onmouseenter = () => { card.style.filter = "brightness(1.15)"; };
+            card.onmouseleave = () => { card.style.filter = ""; };
+            card.onclick = () => {
+                if (this.isSingle) selection.clear();
+                selection.has(file.name) ? selection.delete(file.name) : selection.add(file.name);
+                renderFiles();
+                updateCount();
+            };
+            return card;
+        };
+
+        const renderFiles = () => {
+            galleryRenderRaf = null;
+            const availableWidth = Math.max(CARD_SIZE, gallery.clientWidth - GRID_PADDING * 2);
+            const columns = Math.max(1, Math.floor((availableWidth + CARD_GAP) / (CARD_SIZE + CARD_GAP)));
+            const rowHeight = CARD_SIZE + CARD_GAP;
+            const totalRows = Math.ceil(filteredItems.length / columns);
+            const contentHeight = GRID_PADDING * 2 + Math.max(0, totalRows * rowHeight - CARD_GAP);
+            virtualContent.style.height = `${Math.max(gallery.clientHeight, contentHeight)}px`;
+
+            const startRow = Math.max(0, Math.floor((gallery.scrollTop - GRID_PADDING) / rowHeight) - OVERSCAN_ROWS);
+            const visibleRows = Math.ceil(gallery.clientHeight / rowHeight) + OVERSCAN_ROWS * 2;
+            const startIndex = Math.min(filteredItems.length, startRow * columns);
+            const endIndex = Math.min(filteredItems.length, (startRow + visibleRows) * columns);
+            const fragment = document.createDocumentFragment();
+            for (let index = startIndex; index < endIndex; index++) {
+                const item = filteredItems[index];
+                const card = item.kind === "folder"
+                    ? createFolderCard(item.value)
+                    : createFileCard(item.value);
+                positionCard(card, index, columns);
+                fragment.appendChild(card);
+            }
+            virtualContent.replaceChildren(fragment);
+        };
+
+        const scheduleRender = () => {
+            if (galleryRenderRaf != null) return;
+            galleryRenderRaf = requestAnimationFrame(renderFiles);
+        };
+
+        const rebuildItems = (resetScroll = true) => {
+            filteredItems = [
+                ...visibleFolders().map((value) => ({ kind: "folder", value })),
+                ...visibleFiles().map((value) => ({ kind: "file", value })),
+            ];
+            if (resetScroll) gallery.scrollTop = 0;
+            renderFiles();
+        };
+
+        gallery.addEventListener("scroll", scheduleRender, { passive: true });
+        const galleryResizeObserver = new ResizeObserver(scheduleRender);
+        galleryResizeObserver.observe(gallery);
+        const closeDialog = () => {
+            galleryResizeObserver.disconnect();
+            if (galleryRenderRaf != null) cancelAnimationFrame(galleryRenderRaf);
+            overlay.remove();
+        };
+        search.oninput = () => rebuildItems();
+        backButton.onclick = async () => {
+            if (!currentFolder) return;
+            try {
+                await fetchFolder(parentFolder);
+                search.value = "";
+                rebuildItems();
+                updatePath();
+                updateCount();
+            } catch (error) {
+                notify(`读取上级文件夹失败：${error.message || error}`);
             }
         };
-        search.oninput = renderFiles;
         allButton.onclick = () => { for (const file of visibleFiles()) selection.add(file.name); renderFiles(); updateCount(); };
         noneButton.onclick = () => { selection.clear(); renderFiles(); updateCount(); };
-        cancel.onclick = () => overlay.remove();
-        overlay.onclick = (event) => { if (event.target === overlay) overlay.remove(); };
+        cancel.onclick = closeDialog;
+        overlay.onclick = (event) => { if (event.target === overlay) closeDialog(); };
         confirm.onclick = () => {
             const chosen = [...selection].map((name) => annotated(name, source));
             if (chosen.length) {
@@ -370,7 +505,7 @@ class ImageLoaderGallery {
                 this.selected = new Set([0]);
                 this.clearMask();
             }
-            overlay.remove();
+            closeDialog();
             this.render();
         };
         diskDelete.onclick = async () => {
@@ -385,14 +520,15 @@ class ImageLoaderGallery {
                 const deleted = new Set(result.deleted || []);
                 files = files.filter((file) => !deleted.has(file.name));
                 for (const name of deleted) selection.delete(name);
-                renderFiles();
+                rebuildItems(false);
                 updateCount();
                 if (result.errors?.length) notify(result.errors.join("\n"));
             } catch (error) {
                 notify(`删除失败：${error.message || error}`);
             }
         };
-        renderFiles();
+        rebuildItems();
+        updatePath();
         updateCount();
     }
 
