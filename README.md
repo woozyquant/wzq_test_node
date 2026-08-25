@@ -31,13 +31,18 @@ conditioning、latent 或 VAE 输出。输出包括 `final_prompt`（`STRING`）
 在执行时使用其实际输出值。也支持 EasyUse 的 `Set/Get` 虚拟变量链，会从 Get 按变量名
 定位对应 Set，再继续读取其上游 Float。
 
+高级选项仅显示并使用 `Strict prompt tags`。原 Integration 中的音频模式、音频重绘强度、
+驱动音频序号和参考图尺寸属于 conditioning/latent 构建流程；本提示词节点不生成这些数据，
+因此不再显示这些无效控件。旧工作流中的对应字段仍会保留，以免加载时发生字段错位。
+
 配套节点：
 
 - `MiniMax-H3 Media Input (WZQ)`：提供首尾帧、9路参考图片、3路参考视频、
   Hybrid 音频和3路参考音频输入，并打包为 `media_out`；
 - `MiniMax-H3 Media Output (WZQ)`：接受 `media_in`，拆分输出11路 `IMAGE`、
-  3路 `VIDEO` 和4路 `AUDIO`；在提示词面板中裁剪过的音频会按所选起止时间输出
-  实际裁剪后的 waveform。
+  3路兼容内置 H3 节点的24 FPS视频帧 `IMAGE`、4路 `AUDIO`，并额外保留3路
+  原始 `VIDEO` 和对应的3路视频音轨 `AUDIO`；在提示词面板中裁剪过的音频会按
+  所选起止时间输出实际裁剪后的 waveform。
 
 多个 Media Input 可通过 `media_in → media_out` 依次串联。主提示词节点会合并输入包与
 面板上传素材；连接 `media_in` 后会自动读取上游槽位、切换到对应素材页并显示素材卡片。

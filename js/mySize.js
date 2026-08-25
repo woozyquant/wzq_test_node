@@ -7,6 +7,98 @@ const PRESETS_URL = new URL("def_size_presets.json", import.meta.url).href;
 // 缓存预设，避免每次右键都发请求
 let _presetsCache = null;
 
+const SIZE_WIDGET_NAMES = [
+    "resolution",
+    "width_override",
+    "height_override",
+    "swap_width_height",
+    "upscale_factor",
+    "round_to_multiple",
+];
+const SIZE_TITLE_SUFFIX_RE = /\s+·\s+\d+\s*×\s*\d+$/;
+
+function getWidgetValue(node, name, fallback) {
+    const widget = node.widgets?.find((item) => item.name === name);
+    return widget?.value ?? fallback;
+}
+
+// Python round() rounds exact .5 values to the nearest even integer. Keep the
+// live preview consistent with mySize.execute() for those edge cases too.
+function pythonRound(value) {
+    const lower = Math.floor(value);
+    const fraction = value - lower;
+    const tolerance = Number.EPSILON * Math.max(1, Math.abs(value)) * 2;
+    if (Math.abs(fraction - 0.5) <= tolerance) {
+        return lower % 2 === 0 ? lower : lower + 1;
+    }
+    return Math.round(value);
+}
+
+function calculateOutputSize(node) {
+    const resolution = String(getWidgetValue(node, "resolution", "1024x1024"));
+    const match = resolution.match(/(\d+)x(\d+)\s*$/i);
+    let width = match ? Number(match[1]) : 1024;
+    let height = match ? Number(match[2]) : 1024;
+
+    const widthOverride = Number(getWidgetValue(node, "width_override", 0));
+    const heightOverride = Number(getWidgetValue(node, "height_override", 0));
+    if (widthOverride > 0) width = widthOverride;
+    if (heightOverride > 0) height = heightOverride;
+
+    const upscaleFactor = Number(getWidgetValue(node, "upscale_factor", 1));
+    width = pythonRound(width * upscaleFactor);
+    height = pythonRound(height * upscaleFactor);
+
+    const roundToMultiple = getWidgetValue(node, "round_to_multiple", "8");
+    if (String(roundToMultiple) !== "none") {
+        const multiple = Number(roundToMultiple);
+        if (Number.isFinite(multiple) && multiple > 1) {
+            width = Math.ceil(width / multiple) * multiple;
+            height = Math.ceil(height / multiple) * multiple;
+        }
+    }
+
+    if (getWidgetValue(node, "swap_width_height", false)) {
+        [width, height] = [height, width];
+    }
+    return [width, height];
+}
+
+function updateOutputSizeDisplay(node) {
+    // 清理由旧版本写入标题的尺寸后缀，尺寸现在只显示在内容区域。
+    node.title = String(node.title || "mySizexxx").replace(SIZE_TITLE_SUFFIX_RE, "");
+    const [width, height] = calculateOutputSize(node);
+    node.__wzqOutputSizeText = `${width}x${height}`;
+    app.graph?.setDirtyCanvas(true, false);
+}
+
+function drawOutputSize(node, ctx) {
+    if (!ctx || node.flags?.collapsed || !node.__wzqOutputSizeText) return;
+
+    const x = 8;
+    const y = 6;
+    ctx.save();
+    ctx.font = "bold 13px Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(node.__wzqOutputSizeText, x, y);
+    ctx.restore();
+}
+
+function watchSizeWidgets(node) {
+    for (const widget of node.widgets || []) {
+        if (!SIZE_WIDGET_NAMES.includes(widget.name) || widget.__wzqSizeWatching) continue;
+        const originalCallback = widget.callback;
+        widget.callback = function () {
+            const result = originalCallback?.apply(this, arguments);
+            updateOutputSizeDisplay(node);
+            return result;
+        };
+        widget.__wzqSizeWatching = true;
+    }
+}
+
 async function loadPresets() {
     if (_presetsCache) return _presetsCache;
     // 内置兜底列表，JSON 读取失败时使用（顺序与 def_size_presets.json 一致）
@@ -103,6 +195,7 @@ app.registerExtension({
                                 const w_height = this.widgets.find(x => x.name === "height_override");
                                 if (w_width) { w_width.value = p.w; }
                                 if (w_height) { w_height.value = p.h; }
+                                updateOutputSizeDisplay(this);
                                 app.graph.setDirtyCanvas(true, true);
                             }
                         });
@@ -121,6 +214,24 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = async function () {
             onNodeCreated ? onNodeCreated.apply(this, []) : undefined;
             loadPresets();
+            watchSizeWidgets(this);
+            requestAnimationFrame(() => updateOutputSizeDisplay(this));
+        };
+
+        // Widget values are restored after node creation when loading a workflow.
+        const onConfigure = nodeType.prototype.onConfigure;
+        nodeType.prototype.onConfigure = function () {
+            const result = onConfigure?.apply(this, arguments);
+            watchSizeWidgets(this);
+            requestAnimationFrame(() => updateOutputSizeDisplay(this));
+            return result;
+        };
+
+        const onDrawForeground = nodeType.prototype.onDrawForeground;
+        nodeType.prototype.onDrawForeground = function (ctx) {
+            const result = onDrawForeground?.apply(this, arguments);
+            drawOutputSize(this, ctx);
+            return result;
         };
     }
 });

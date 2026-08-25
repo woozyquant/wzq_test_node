@@ -1022,9 +1022,12 @@ function nodeColorToCss(value) {
             );
             driveAudioOrdinalControl.value = String(next);
         }
-        const visible = state.mode === "text_keyframes"
-            ? ["audio_mode", "audio_denoise_strength", "strict_prompt_tags"]
-            : ["audio_mode", "audio_denoise_strength", "ref_image_size", "strict_prompt_tags", "drive_audio_ordinal"];
+        // This port only emits the final prompt and a media bundle. The
+        // original integration's audio redraw/reference-size controls acted on
+        // model conditioning that this node does not create, so exposing them
+        // here was misleading. Keep their serialized widgets for old workflow
+        // compatibility, but only show the option that affects our output.
+        const visible = ["strict_prompt_tags"];
         for (const [name, row] of advancedRows) {
             const isVisible = visible.includes(name);
             row.hidden = !isVisible;
@@ -2646,7 +2649,11 @@ function nodeColorToCss(value) {
             if (uploadNotice) grid.appendChild(make("div", {}, uploadNotice)).className = "ghh3-limit";
             box.appendChild(grid);
         }
-    root.insertBefore(box, promptWrap); repairLegacyReferenceTags(); ensureReferenceTags(); refreshTaskType(); refreshAdaptiveRatio(); syncLayout();
+    // Rendering also happens during tab/mode switches. Do not call
+    // ensureReferenceTags() here: that helper is intentionally tied to an
+    // actual media upload, and running it while restoring the reference page
+    // mutates an otherwise unchanged prompt by appending a missing media tag.
+    root.insertBefore(box, promptWrap); repairLegacyReferenceTags(); refreshTaskType(); refreshAdaptiveRatio(); syncLayout();
     }
     function limitText(kind) {
         return kind === "image" ? t("Up to 9 images") : kind === "video" ? t("Up to 3 videos") : t("Up to 3 audios");

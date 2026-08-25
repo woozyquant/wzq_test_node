@@ -214,6 +214,55 @@ def _trim_audio(audio, item):
     return result
 
 
+def _video_components(video):
+    if video is None:
+        return None
+    if hasattr(video, "get_components"):
+        return video.get_components()
+    if isinstance(video, dict):
+        return video
+    return None
+
+
+def _video_frames_at_24fps(video, components=None):
+    """Convert a Comfy VIDEO to the IMAGE batch expected by MiniMax H3."""
+    if components is None:
+        components = _video_components(video)
+    images = getattr(components, "images", None)
+    frame_rate = getattr(components, "frame_rate", None)
+    if isinstance(components, dict):
+        images = components.get("images", images)
+        frame_rate = components.get("frame_rate", frame_rate)
+    if images is None:
+        return None
+    try:
+        source_count = int(images.shape[0])
+        source_fps = float(frame_rate)
+    except (AttributeError, TypeError, ValueError, IndexError):
+        return images
+    if source_count <= 1 or source_fps <= 0 or abs(source_fps - 24.0) < 1e-6:
+        return images
+
+    import torch
+
+    target_count = max(1, int(round(source_count * 24.0 / source_fps)))
+    indices = torch.linspace(
+        0,
+        source_count - 1,
+        target_count,
+        device=images.device,
+    ).round().long()
+    return images.index_select(0, indices)
+
+
+def _video_audio(video, components=None):
+    if components is None:
+        components = _video_components(video)
+    if isinstance(components, dict):
+        return components.get("audio")
+    return getattr(components, "audio", None)
+
+
 def _has_media(value) -> bool:
     if value is None:
         return False
@@ -453,18 +502,41 @@ class WZQMiniMaxH3MediaOutput:
 
     RETURN_TYPES = (
         *("IMAGE" for _slot in IMAGE_SLOTS),
-        *("VIDEO" for _slot in VIDEO_SLOTS),
+        *("IMAGE" for _slot in VIDEO_SLOTS),
         *("AUDIO" for _slot in AUDIO_SLOTS),
+        *("VIDEO" for _slot in VIDEO_SLOTS),
+        *("AUDIO" for _slot in VIDEO_SLOTS),
     )
-    RETURN_NAMES = (*IMAGE_SLOTS, *VIDEO_SLOTS, *AUDIO_SLOTS)
+    RETURN_NAMES = (
+        *IMAGE_SLOTS,
+        *VIDEO_SLOTS,
+        *AUDIO_SLOTS,
+        *(f"ref_video_file_{index}" for index in range(1, 4)),
+        *(f"ref_video_audio_{index}" for index in range(1, 4)),
+    )
     FUNCTION = "unpack"
     CATEGORY = "WZQ/MiniMax H3"
-    DESCRIPTION = "Unpacks WZQ_H3_MEDIA into multiple IMAGE, VIDEO, and AUDIO outputs."
+    DESCRIPTION = "Unpacks H3 media; ref_video outputs are 24 fps IMAGE batches compatible with MiniMax H3 Reference to Video."
 
     def unpack(self, media_in):
         bundle = _normalize_media_bundle(media_in)
         by_slot = {item["slot"]: item for item in bundle["items"]}
-        return tuple(
-            _materialize_media(by_slot.get(slot))
-            for slot in (*IMAGE_SLOTS, *VIDEO_SLOTS, *AUDIO_SLOTS)
+        images = tuple(_materialize_media(by_slot.get(slot)) for slot in IMAGE_SLOTS)
+        videos = tuple(_materialize_media(by_slot.get(slot)) for slot in VIDEO_SLOTS)
+        video_components = tuple(_video_components(video) for video in videos)
+        video_frames = tuple(
+            _video_frames_at_24fps(video, components)
+            for video, components in zip(videos, video_components)
+        )
+        audios = tuple(_materialize_media(by_slot.get(slot)) for slot in AUDIO_SLOTS)
+        video_audios = tuple(
+            _video_audio(video, components)
+            for video, components in zip(videos, video_components)
+        )
+        return (
+            *images,
+            *video_frames,
+            *audios,
+            *videos,
+            *video_audios,
         )
