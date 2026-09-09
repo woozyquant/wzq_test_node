@@ -24,6 +24,8 @@ from .wzq.my_lora_node import MyMultiLoraLoaderModelOnly
 from .wzq.my_lora_node import MyLocalLoraOnlyGallery
 from .wzq.canvas_extend import WZQCanvasExtend
 from .wzq.image_loader import WZQImageLoader
+from .wzq.audio_loader import WZQAudioLoader
+from .wzq.smart_image_size import WZQSmartImageSize
 from .wzq.minimax_h3_prompt import (
     WZQMiniMaxH3MediaInput,
     WZQMiniMaxH3MediaOutput,
@@ -59,6 +61,8 @@ NODE_CLASS_MAPPINGS = {
     "myBatchCount": myBatchCount,
     "myWZQCanvasExtend": WZQCanvasExtend,
     "WZQImageLoader": WZQImageLoader,
+    "WZQAudioLoader": WZQAudioLoader,
+    "wzq_image_out": WZQSmartImageSize,
     "WZQMiniMaxH3Prompt": WZQMiniMaxH3Prompt,
     "WZQMiniMaxH3MediaInput": WZQMiniMaxH3MediaInput,
     "WZQMiniMaxH3MediaOutput": WZQMiniMaxH3MediaOutput,
@@ -77,6 +81,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
     "myWZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
     "WZQImageLoader": "WZQ 图像加载器",
+    "WZQAudioLoader": "WZQ 音频加载器",
+    "wzq_image_out": "wzq_image_out",
     "WZQMiniMaxH3Prompt": "MiniMax-H3 Prompt (WZQ)",
     "WZQMiniMaxH3MediaInput": "MiniMax-H3 Media Input (WZQ)",
     "WZQMiniMaxH3MediaOutput": "MiniMax-H3 Media Output (WZQ)",

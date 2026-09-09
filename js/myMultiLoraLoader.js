@@ -33,6 +33,7 @@ const DEFAULT_VALUE = Object.freeze({ on: true, lora: null, strength: 1.0 });
 const NUMBER_WIDTH = 56;
 const ROW_HEIGHT = 26;
 const NODE_MIN_WIDTH = 460;
+const LORA_MENU_CLASS = "wzq-multi-lora-menu";
 
 let loraNamesPromise = null;
 
@@ -114,6 +115,48 @@ function closeLoraMenus() {
     for (const menu of document.querySelectorAll(".litecontextmenu")) {
         menu.remove();
     }
+}
+
+function installLoraMenuHoverStyle() {
+    const styleId = "wzq-multi-lora-menu-hover-style";
+    if (document.getElementById(styleId)) {
+        return;
+    }
+
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+        .litecontextmenu.${LORA_MENU_CLASS} .litemenu-entry:hover {
+            background-color: var(--content-hover-bg, #4a4a4a) !important;
+            color: var(--input-text, #fff) !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function trackLoraMenus() {
+    installLoraMenuHoverStyle();
+
+    const tagMenus = (root) => {
+        if (root instanceof Element && root.matches(".litecontextmenu")) {
+            root.classList.add(LORA_MENU_CLASS);
+        }
+        root.querySelectorAll?.(".litecontextmenu").forEach((menu) => {
+            menu.classList.add(LORA_MENU_CLASS);
+        });
+    };
+
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            mutation.addedNodes.forEach(tagMenus);
+        }
+
+        if (!document.querySelector(`.litecontextmenu.${LORA_MENU_CLASS}`)) {
+            observer.disconnect();
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return observer;
 }
 
 function addLoraSearch(menu, loras, callback) {
@@ -243,6 +286,7 @@ function addLoraSearch(menu, loras, callback) {
 async function showLoraChooser(event, callback) {
     const loras = await getLoraNames();
     const existingMenus = new Set(document.querySelectorAll(".litecontextmenu"));
+    const menuObserver = trackLoraMenus();
     new LiteGraph.ContextMenu(buildLoraMenuOptions(loras, callback), {
         event,
         title: "Choose a LoRA",
@@ -251,6 +295,10 @@ async function showLoraChooser(event, callback) {
     });
     const createdMenus = [...document.querySelectorAll(".litecontextmenu")]
         .filter((menu) => !existingMenus.has(menu));
+    createdMenus.forEach((menu) => menu.classList.add(LORA_MENU_CLASS));
+    if (!createdMenus.length) {
+        menuObserver.disconnect();
+    }
     addLoraSearch(createdMenus.at(-1), loras, callback);
 }
 

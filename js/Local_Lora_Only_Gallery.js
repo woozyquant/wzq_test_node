@@ -1,5 +1,38 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import { RgthreeLoraInfoDialog } from "/extensions/wzq_test_node/lorainfo/lorainfo.js";
+
+function escapeMediaUrl(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+}
+
+function getCachedMediaUrl(url) {
+    const source = String(url || "");
+    const route = /^https?:\/\//i.test(source)
+        ? `/wzq/api/lora_media?url=${encodeURIComponent(source)}`
+        : source;
+    return escapeMediaUrl(route);
+}
+
+function enforceMutedVideo(video) {
+    if (!video) return;
+    const enforceMuted = () => {
+        video.defaultMuted = true;
+        video.muted = true;
+        video.volume = 0;
+    };
+    enforceMuted();
+    if (video.dataset.wzqMuteGuard !== "1") {
+        video.dataset.wzqMuteGuard = "1";
+        video.addEventListener("volumechange", enforceMuted);
+        video.addEventListener("play", enforceMuted);
+    }
+    video.playsInline = true;
+}
 
 const LocalLoraOnlyGalleryNode = {
     name: "LocalLoraOnlyGallery",
@@ -339,8 +372,6 @@ const LocalLoraOnlyGalleryNode = {
                     return;
                 }
                 try {
-                    const rgthreeModule = await import("/extensions/rgthree-comfy/dialog_info.js");
-                    const RgthreeLoraInfoDialog = rgthreeModule.RgthreeLoraInfoDialog;
                     const infoDialog = new RgthreeLoraInfoDialog(loraName).show();
 
                 } catch (error) {
@@ -386,12 +417,13 @@ const LocalLoraOnlyGalleryNode = {
                         
                         const mediaContainer = card.querySelector('.locallora-media-container');
                         if (preview_type === 'video' && preview_url) {
-                            mediaContainer.innerHTML = `<video muted loop playsinline src="${preview_url}"></video>`;
+                            mediaContainer.innerHTML = `<video muted loop playsinline preload="metadata" src="${getCachedMediaUrl(preview_url)}"></video>`;
                             const video = mediaContainer.querySelector('video');
+                            enforceMutedVideo(video);
                             card.addEventListener('mouseenter', () => video.play().catch(e => {}));
                             card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
                         } else if (preview_type === 'image' && preview_url) {
-                            mediaContainer.innerHTML = `<img src="${preview_url}">`;
+                            mediaContainer.innerHTML = `<img src="${getCachedMediaUrl(preview_url)}">`;
                         } else {
                             const empty_lora_image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                             mediaContainer.innerHTML = `<img src="${empty_lora_image}">`;
@@ -457,9 +489,9 @@ const LocalLoraOnlyGalleryNode = {
                     const previewUrl = lora.preview_url;
 
                     if (lora.preview_type === 'video' && previewUrl) {
-                        mediaHTML = `<video muted loop playsinline src="${previewUrl}"></video>`;
+                        mediaHTML = `<video muted loop playsinline preload="metadata" src="${getCachedMediaUrl(previewUrl)}"></video>`;
                     } else {
-                        mediaHTML = `<img src="${previewUrl || empty_lora_image}" loading="lazy">`;
+                        mediaHTML = `<img src="${getCachedMediaUrl(previewUrl || empty_lora_image)}" loading="lazy">`;
                     }
                     
                     const linkBtnHTML = lora.download_url ? `<a href="${lora.download_url}" target="_blank" class="card-btn lora-card-link-btn" title="Open download page">🔗</a>` : '';
@@ -495,6 +527,7 @@ const LocalLoraOnlyGalleryNode = {
                     if (lora.preview_type === 'video') {
                         const video = card.querySelector('video');
                         if (video) {
+                            enforceMutedVideo(video);
                             card.addEventListener('mouseenter', () => video.play().catch(e => {}));
                             card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
                         }

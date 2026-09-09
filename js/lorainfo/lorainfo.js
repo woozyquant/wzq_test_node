@@ -13,6 +13,23 @@ const showMessage = ({ id, type, message, timeout }) => {
     // alert(`${type.toUpperCase()}: ${message}`);
 };
 
+function escapeHtmlAttribute(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+}
+
+function getCachedMediaUrl(url) {
+    const source = String(url || "");
+    if (!/^https?:\/\//i.test(source)) {
+        return escapeHtmlAttribute(source);
+    }
+    const route = `/wzq/api/lora_media?url=${encodeURIComponent(source)}`;
+    return escapeHtmlAttribute(route);
+}
+
 class RgthreeInfoDialog extends RgthreeDialog {
     constructor(file) {
         const dialogOptions = {
@@ -38,8 +55,23 @@ class RgthreeInfoDialog extends RgthreeDialog {
         this.fileSizeText = "";
         this.fetchFileSize(file);
         this.setContent(this.getInfoContent());
+        this.mutePreviewVideos();
         this.setTitle(((_a = this.modelInfo) === null || _a === void 0 ? void 0 : _a["name"]) || ((_b = this.modelInfo) === null || _b === void 0 ? void 0 : _b["file"]) || "Unknown");
         this.attachEvents();
+    }
+
+    mutePreviewVideos() {
+        for (const video of this.contentElement.querySelectorAll(".rgthree-info-images video")) {
+            const enforceMuted = () => {
+                video.defaultMuted = true;
+                video.muted = true;
+                video.volume = 0;
+            };
+            enforceMuted();
+            video.addEventListener("volumechange", enforceMuted);
+            video.addEventListener("play", enforceMuted);
+            video.playsInline = true;
+        }
     }
 
     async fetchFileSize(file) {
@@ -51,6 +83,7 @@ class RgthreeInfoDialog extends RgthreeDialog {
                 this.fileSizeText = formatFileSize(data.sizeBytes);
                 // 仅刷新内容，保留滚动位置等
                 this.setContent(this.getInfoContent());
+                this.mutePreviewVideos();
             }
         } catch (err) {
             console.error("[wzq] Failed to fetch lora file size:", err);
@@ -84,6 +117,7 @@ class RgthreeInfoDialog extends RgthreeDialog {
         if (action === "fetch-civitai") {
             this.modelInfo = await this.refreshModelInfo(info.file);
             this.setContent(this.getInfoContent());
+            this.mutePreviewVideos();
             this.setTitle(((_a = this.modelInfo) === null || _a === void 0 ? void 0 : _a["name"]) || ((_b = this.modelInfo) === null || _b === void 0 ? void 0 : _b["file"]) || "Unknown");
         }
         else if (action === "copy-trained-words") {
@@ -231,8 +265,8 @@ class RgthreeInfoDialog extends RgthreeDialog {
       <ul class="rgthree-info-images">${(_y = (_x = info.images) === null || _x === void 0 ? void 0 : _x.map((img) => `
         <li>
           <figure>${img.type === 'video'
-            ? `<video src="${img.url}" autoplay loop></video>`
-            : `<img src="${img.url}" />`}
+            ? `<video src="${getCachedMediaUrl(img.url)}" autoplay muted loop playsinline preload="metadata"></video>`
+            : `<img src="${getCachedMediaUrl(img.url)}" loading="lazy" />`}
             <figcaption><!--
               -->${imgInfoField("", img.civitaiUrl
             ? `<a href="${img.civitaiUrl}" target="_blank">civitai${link}</a>`

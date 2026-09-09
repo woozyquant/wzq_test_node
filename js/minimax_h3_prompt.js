@@ -2,6 +2,9 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
 const OPTIMIZER_DONE_SOUND_URL = "";
+const PROMPT_SNIPPETS_STORAGE_KEY = "WZQ.MiniMaxH3.PromptSnippets";
+const PROMPT_SNIPPETS_CHANGED_EVENT = "wzq-minimax-h3-prompt-snippets-changed";
+const PROMPT_SNIPPET_TERMINATOR = /[\s,.，。“”"'‘’、;；:：!?！？()（）[\]{}【】《》<>]/u;
 
 const NODE = "WZQMiniMaxH3Prompt";
 const RH_NODE_IDS = [NODE];
@@ -63,7 +66,19 @@ const DOM_TRANSLATIONS = {
     "Text-to-video": "文生视频",
     "First/last frames / Text-to-video": "首尾帧 / 文生视频",
     "All-purpose reference": "全能参考",
-    "Prompt:\nClick an uploaded asset to insert its tag, e.g. <picture 1>, <video 1>, or <audio 2>;\nDouble-click a video to insert its audio tag; mute a video at the top-right to exclude its audio from references": "提示词：\n单击已上传的素材自动添加标签，如：<picture 1>、<video 1>、<audio 2>；\n双击视频自动添加视频中的音频标签；视频右上角静音后音频将不传入参考",
+    "Prompt:\nType @ to choose attached media; type # to insert a code snippet; click an uploaded asset to insert its tag, e.g. <picture 1>, <video 1>, or <audio 2>;\nDouble-click a video to insert its audio tag; mute a video at the top-right to exclude its audio from references": "提示词：\n输入 @ 可选择已接入的素材；输入 # 可插入代码片段；单击已上传的素材也可添加标签，如：<picture 1>、<video 1>、<audio 2>；\n双击视频自动添加视频中的音频标签；视频右上角静音后音频将不传入参考",
+    "No available media": "暂无可插入的素材",
+    "No matching snippets": "没有匹配的代码片段",
+    "Code snippets": "代码片段",
+    "Configure code snippets": "设置代码片段",
+    "Snippet name": "片段名称",
+    "Snippet content": "代码内容",
+    "Add snippet": "新增片段",
+    "Delete snippet": "删除片段",
+    "New snippet": "新建片段",
+    "No snippets yet": "暂无代码片段",
+    "Snippet name is required": "片段名称不能为空",
+    "Snippet names must be unique": "片段名称不能重复",
     "Advanced options": "高级选项",
     "Audio mode": "音频模式",
     "Audio denoise strength": "音频去噪强度",
@@ -89,7 +104,8 @@ const DOM_TRANSLATIONS = {
     "Up to 3 audios": "最多3个音频",
     "Optimize": "优化", "LLM Prompt Optimization Configuration": "LLM提示词优化配置",
     "Provider": "平台", "API key": "API Key", "Read visual references": "读取视觉素材",
-    "Save": "保存", "Cancel": "取消", "Custom": "自定义",
+    "Save": "保存", "Save and close": "保存并关闭", "Cancel": "取消", "Custom": "自定义",
+    "Saved": "已保存", "Unsaved changes": "有未保存的修改", "Unable to save snippets": "无法保存代码片段",
     "API URL": "API 地址", "Model": "模型", "Protocol": "协议",
     "Prompt is connected to an upstream node; the internal prompt is disabled!": "提示词已连接上游节点，内部提示词已禁用！",
     "Optimize prompt": "优化提示词", "Optimizing click to cancel": "优化中 点击取消",
@@ -298,6 +314,31 @@ function make(tag, css = {}, text = "") {
     const el = document.createElement(tag); Object.assign(el.style, css);
     if (text) el.textContent = text; return el;
 }
+function promptSnippetId() {
+    try { return crypto.randomUUID(); }
+    catch { return `snippet-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
+}
+function normalizePromptSnippets(value) {
+    if (!Array.isArray(value)) return [];
+    const seenIds = new Set();
+    return value.map(item => {
+        if (!item || typeof item !== "object") return null;
+        let id = String(item.id || "").trim() || promptSnippetId();
+        while (seenIds.has(id)) id = promptSnippetId();
+        seenIds.add(id);
+        return { id, name: String(item.name || "").trim(), content: String(item.content || "") };
+    }).filter(Boolean);
+}
+function loadPromptSnippets() {
+    try { return normalizePromptSnippets(JSON.parse(localStorage.getItem(PROMPT_SNIPPETS_STORAGE_KEY) || "[]")); }
+    catch { return []; }
+}
+function savePromptSnippets(snippets) {
+    const normalized = normalizePromptSnippets(snippets);
+    localStorage.setItem(PROMPT_SNIPPETS_STORAGE_KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent(PROMPT_SNIPPETS_CHANGED_EVENT, { detail: normalized }));
+    return normalized;
+}
 function kindOf(file) {
     if (file.type?.startsWith("image/") || /\.(png|jpe?g|webp|bmp|gif)$/i.test(file.name)) return "image";
     if (file.type?.startsWith("video/") || /\.(mp4|mov|webm|mkv|avi)$/i.test(file.name)) return "video";
@@ -348,11 +389,13 @@ function createPanel(node) {
       .ghh3-audio-drop .ghh3-drop-icon{font-size:14px;line-height:1;height:1.2em}
       .ghh3-drop-title-row .ghh3-optional{position:static;display:inline-flex;align-items:center;height:1.2em;line-height:1.2}
       .ghh3-keygrid .ghh3-drop:not(.ghh3-audio-drop) .ghh3-drop-icon,.ghh3-keygrid .ghh3-drop:not(.ghh3-audio-drop) .ghh3-optional{transform:translateY(-1px)}
-       .ghh3-prompt-wrap{position:relative;display:grid;grid-template-rows:22px minmax(0,1fr);width:100%;height:100%;min-height:0;background:#1d2731;border-radius:6px;overflow:hidden}.ghh3-prompt-wrap .ghh3-prompt{grid-row:2;border-radius:0 0 6px 6px}.ghh3-prompt-wrap.external .ghh3-prompt{opacity:.42;cursor:not-allowed}.ghh3-prompt-tools{grid-row:1;display:flex;align-items:center;justify-content:flex-end;gap:3px;padding:2px 5px;box-sizing:border-box;background:#1d2731;z-index:4}.ghh3-prompt-elapsed{display:none;margin-right:auto;color:#617684;font:9px/17px Arial,sans-serif}.ghh3-prompt-elapsed.visible{display:inline-block}.ghh3-optimizer-model{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;color:rgba(96,116,130,.6);font:8px/17px Arial,sans-serif;margin-left:auto;margin-right:17px}.ghh3-prompt-tool{height:17px;min-width:17px;padding:0 3px;border:0;border-radius:3px;background:#1d2731;color:#6f8291;font:11px/17px Arial,sans-serif;cursor:pointer;opacity:.72;flex:0 0 auto}.ghh3-optimize-tool{font-size:13px}.ghh3-prompt-tool:hover{color:#9aabb8;background:#24323e}.ghh3-prompt-tool:disabled{opacity:.25;cursor:not-allowed}.ghh3-prompt-reset{display:none;font-size:12px;line-height:15px}.ghh3-prompt-reset.visible{display:inline-block}.ghh3-prompt-loading{color:#0aa4d6!important;opacity:1!important;animation:ghh3-spin 1.6s linear infinite}@keyframes ghh3-spin{to{transform:rotate(360deg)}}.ghh3-tool-tip{position:fixed;z-index:10100;padding:4px 7px;border-radius:4px;background:#111a22;color:#cbd7df;border:1px solid #344753;font:10px/1.2 Arial,sans-serif;pointer-events:none;white-space:nowrap}.ghh3-opt-check{justify-self:end;width:auto!important}.ghh3-opt-language{display:grid;grid-template-columns:1fr 1fr;width:100%;align-items:center}.ghh3-opt-language label{display:flex;align-items:center;gap:4px;white-space:nowrap}.ghh3-opt-language label:first-child{justify-self:start}.ghh3-opt-language label:last-child{justify-self:end}.ghh3-opt-language input{width:auto}
+      .ghh3-prompt-wrap{position:relative;display:grid;grid-template-rows:22px minmax(0,1fr);width:100%;height:100%;min-height:0;background:#1d2731;border-radius:6px;overflow:visible}.ghh3-prompt-wrap .ghh3-prompt{grid-row:2;border-radius:0 0 6px 6px}.ghh3-prompt-wrap.external .ghh3-prompt{opacity:.42;cursor:not-allowed}.ghh3-prompt-tools{grid-row:1;display:flex;align-items:center;justify-content:flex-end;gap:3px;padding:2px 5px;box-sizing:border-box;background:#1d2731;z-index:4}.ghh3-prompt-elapsed{display:none;margin-right:auto;color:#617684;font:9px/17px Arial,sans-serif}.ghh3-prompt-elapsed.visible{display:inline-block}.ghh3-optimizer-model{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;color:rgba(96,116,130,.6);font:8px/17px Arial,sans-serif;margin-left:auto;margin-right:17px}.ghh3-prompt-tool{height:17px;min-width:17px;padding:0 3px;border:0;border-radius:3px;background:#1d2731;color:#6f8291;font:11px/17px Arial,sans-serif;cursor:pointer;opacity:.72;flex:0 0 auto}.ghh3-optimize-tool{font-size:13px}.ghh3-prompt-tool:hover{color:#9aabb8;background:#24323e}.ghh3-prompt-tool:disabled{opacity:.25;cursor:not-allowed}.ghh3-prompt-reset{display:none;font-size:12px;line-height:15px}.ghh3-prompt-reset.visible{display:inline-block}.ghh3-prompt-loading{color:#0aa4d6!important;opacity:1!important;animation:ghh3-spin 1.6s linear infinite}@keyframes ghh3-spin{to{transform:rotate(360deg)}}.ghh3-tool-tip{position:fixed;z-index:10100;padding:4px 7px;border-radius:4px;background:#111a22;color:#cbd7df;border:1px solid #344753;font:10px/1.2 Arial,sans-serif;pointer-events:none;white-space:nowrap}.ghh3-opt-check{justify-self:end;width:auto!important}.ghh3-opt-language{display:grid;grid-template-columns:1fr 1fr;width:100%;align-items:center}.ghh3-opt-language label{display:flex;align-items:center;gap:4px;white-space:nowrap}.ghh3-opt-language label:first-child{justify-self:start}.ghh3-opt-language label:last-child{justify-self:end}.ghh3-opt-language input{width:auto}.ghh3-mention-menu{display:none;position:absolute;z-index:80;left:7px;right:7px;top:27px;max-height:180px;overflow:auto;padding:4px;border:1px solid #3b5969;border-radius:6px;background:#13212b;box-shadow:0 8px 20px rgba(0,0,0,.48)}.ghh3-mention-menu.open{display:block}.ghh3-mention-option{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,45%);align-items:center;gap:7px;width:100%;border:0;border-radius:4px;background:transparent;color:#dbe8f0;text-align:left;padding:5px 6px;cursor:pointer;font:11px/1.25 Arial,sans-serif}.ghh3-mention-option:hover,.ghh3-mention-option.active{background:#254554}.ghh3-mention-kind{color:#1bc3dd;white-space:nowrap}.ghh3-mention-name,.ghh3-mention-tag{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ghh3-mention-name{color:#9aafbc}.ghh3-mention-tag{color:#dce8ef;font-size:10px}.ghh3-mention-empty{padding:7px;color:#8196a4;font:11px/1.3 Arial,sans-serif}
        .ghh3-prompt-wrap{grid-template-columns:minmax(0,1fr)}.ghh3-prompt-wrap .ghh3-prompt-rich{position:absolute;grid-row:auto;left:0;right:0;top:22px;bottom:0;width:100%;height:auto;min-height:0;max-height:none;z-index:2;overflow-x:hidden;overflow-y:auto;background:#1d2731;color:#e1e9ef;-webkit-text-fill-color:currentColor;caret-color:#e1e9ef;line-height:2.35;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;padding:7px 7px calc(7px + 14 * 1.4em)}.ghh3-prompt-rich.ghh3-prompt-empty:before{content:attr(data-placeholder);position:absolute;left:7px;right:7px;top:7px;color:#52616d;white-space:pre-wrap;pointer-events:none}.ghh3-prompt-highlight{display:none}.ghh3-prompt-rich mark{padding:0;color:#27d9e5;-webkit-text-fill-color:#27d9e5;background:transparent;font:inherit}.ghh3-prompt-section{padding:0;color:#168b99;-webkit-text-fill-color:#168b99;background:transparent;font:inherit}.ghh3-prompt-tag{display:inline-block;box-sizing:border-box;padding:1px 5px;margin:0 2px;border-radius:5px;background:#3b3b3b;color:#cdcdcd;-webkit-text-fill-color:#cdcdcd;font-size:.86em;line-height:1.35;vertical-align:middle;white-space:nowrap}.ghh3-prompt-media-token{display:inline-flex;align-items:center;vertical-align:middle;white-space:nowrap}.ghh3-prompt-media-preview{position:static;flex:0 0 26px;width:26px;height:26px;margin-left:.5em;margin-right:4px;box-sizing:border-box;border:1px solid rgba(91,124,143,.72);border-radius:5px;background:#14222d;object-fit:cover;color:#77a5b7;display:inline-flex;align-items:center;justify-content:center;font:14px/26px Arial,sans-serif;overflow:hidden;vertical-align:middle;user-select:none}.ghh3-prompt-media-preview.ghh3-prompt-audio-preview{border-radius:50%}.ghh3-prompt-media-preview.ghh3-prompt-audio-preview:before{content:"♫";font-size:13px}.ghh3-prompt-wrap.external .ghh3-prompt-rich{opacity:.42}
         .ghh3-opt-overlay{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.58);font:12px Arial,sans-serif}.ghh3-opt-dialog{width:min(470px,calc(100vw - 30px));background:#17222c;color:#d7e3ec;border:1px solid #344958;border-radius:9px;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:14px}.ghh3-opt-title{font-size:12px;margin-bottom:12px;white-space:nowrap}.ghh3-opt-row{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:8px;min-height:38px;margin:0}.ghh3-opt-row>span{white-space:nowrap}.ghh3-opt-row input,.ghh3-opt-row select{width:100%;box-sizing:border-box;background:#1d2b36;color:#dce7ee;border:1px solid #3a4d5b;border-radius:4px;padding:6px;font:inherit}.ghh3-opt-hidden{display:none!important}.ghh3-opt-model-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;min-width:0}.ghh3-opt-model-native{display:none}.ghh3-opt-model-picker{width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;background:#1d2b36;color:#dce7ee;border:1px solid #3a4d5b;border-radius:4px;padding:6px 24px 6px 7px;cursor:pointer;position:relative;font:inherit}.ghh3-opt-model-picker:after{content:"⌄";position:absolute;right:7px}.ghh3-opt-model-menu{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:10070;box-sizing:border-box;width:max-content;min-width:100%;max-width:calc(100vw - 30px);padding:5px;background:#17222c;border:1px solid #3a4d5b;border-radius:5px;box-shadow:0 8px 22px rgba(0,0,0,.45)}.ghh3-opt-model-menu.open{display:block}.ghh3-opt-model-search{display:block;width:100%;min-width:100%;margin-bottom:5px;font:inherit}.ghh3-opt-model-results{max-height:285px;overflow:auto}.ghh3-opt-model-option{display:block;width:max-content;min-width:100%;border:0;background:transparent;color:#dce7ee;text-align:left;padding:6px;border-radius:3px;white-space:nowrap;cursor:pointer;font:inherit}.ghh3-opt-model-option:hover,.ghh3-opt-model-option.selected{background:#274252}.ghh3-opt-model-empty{padding:7px;color:#8294a2;font-size:12px}.ghh3-opt-refresh{display:flex;align-items:center;justify-content:center;width:30px;height:30px;margin:0;background:#1d2b36;color:#cbd8e0;border:1px solid #3a4d5b;border-radius:4px;padding:0;cursor:pointer;font-size:16px;line-height:1;white-space:nowrap;transition:background .12s,color .12s,border-color .12s}.ghh3-opt-refresh:hover{background:#263b49;border-color:#4c6879;color:#e4f1f5}.ghh3-opt-refresh:active{background:#17535a;border-color:#2a7c85;color:#fff}.ghh3-opt-refresh.loading{background:#17535a;border-color:#2a7c85;color:#42d8e5;cursor:wait}.ghh3-opt-refresh.loading svg{animation:ghh3-spin 1.2s linear infinite}.ghh3-opt-refresh:disabled{opacity:.85}.ghh3-opt-dependencies{margin:6px 0;color:#d98d97;font-size:12px;line-height:1.35}.ghh3-opt-checks{margin:0}.ghh3-opt-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:28px}.ghh3-opt-actions button{border:1px solid #3a4d5b;border-radius:4px;background:#1d2b36;color:#cbd8e0;padding:5px 12px;cursor:pointer}.ghh3-opt-actions button:last-child{background:#17535a;border-color:#26717a;color:#e0f2f2}.ghh3-opt-custom{display:none}.ghh3-opt-dialog.custom .ghh3-opt-custom{display:grid}
         .ghh3-audio-trim-button,.ghh3-sound{position:absolute;z-index:6;width:14px;height:14px;padding:0;border:0;border-radius:50%;background:rgba(34,52,65,.52)!important;color:#fff;font:9px/14px Arial,sans-serif;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .12s ease}.ghh3-audio-trim-button{right:3px;top:3px}.ghh3-audio-card .ghh3-audio-trim-button{right:40px;top:4px}.ghh3-sound{right:2px;top:2px}.ghh3-card:hover .ghh3-audio-trim-button,.ghh3-card:hover .ghh3-sound,.ghh3-audio-trim-button:focus-visible,.ghh3-sound:focus-visible{opacity:1;pointer-events:auto}.ghh3-audio-trim-button:hover,.ghh3-sound:hover{color:#fff;background:rgba(45,75,88,.66)!important}
         .ghh3-trim-overlay{position:fixed;inset:0;z-index:10200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.64);font:12px Arial,sans-serif}.ghh3-trim-dialog{width:min(720px,calc(100vw - 30px));box-sizing:border-box;padding:15px;background:#17222c;color:#d7e3ec;border:1px solid #365161;border-radius:9px;box-shadow:0 18px 52px rgba(0,0,0,.55)}.ghh3-trim-title{font-size:13px;margin-bottom:12px}.ghh3-trim-wave-wrap{position:relative;width:100%;height:190px;overflow:hidden;border:1px solid #324b5b;border-radius:6px;background:#0d1720;cursor:crosshair;touch-action:none}.ghh3-trim-wave-wrap.ghh3-trim-panning{cursor:grabbing}.ghh3-trim-wave{display:block;width:100%;height:100%}.ghh3-trim-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7f94a3;background:#0d1720}.ghh3-trim-times{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}.ghh3-trim-time{position:relative;padding:7px 9px;border-radius:5px;background:#1d2b36;color:#9fb0bc}.ghh3-trim-time strong{display:block;margin-top:3px;color:#e2edf3;font-size:13px;font-weight:500}.ghh3-trim-sync{position:absolute;right:6px;top:5px;border:1px solid #466474;border-radius:4px;background:#223744;color:#b8d2dc;padding:2px 7px;font:12px/16px Arial,sans-serif;cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.04)}.ghh3-trim-sync:hover{background:#2a4a58;border-color:#5b8091;color:#d9f0f4}.ghh3-trim-controls{display:flex;align-items:center;gap:8px;margin-top:12px}.ghh3-trim-preview{display:flex;align-items:center;justify-content:center;width:30px;height:28px;border:1px solid #3a5363;border-radius:4px;background:#1d2b36;color:#dce7ee;padding:0;cursor:pointer}.ghh3-trim-preview svg{width:12px;height:12px}.ghh3-trim-hint{color:#778b99;font-size:10px}.ghh3-trim-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.ghh3-trim-actions button{border:1px solid #3a5363;border-radius:4px;background:#1d2b36;color:#dce7ee;padding:6px 14px;cursor:pointer}.ghh3-trim-actions button:last-child{background:#17535a;border-color:#26717a;color:#e8f6f6}.ghh3-trim-actions button:disabled,.ghh3-trim-preview:disabled{opacity:.45;cursor:not-allowed}
+        .ghh3-snippet-tool{display:inline-flex;align-items:center;justify-content:center}.ghh3-snippet-tool svg{display:block;width:13px;height:13px}
+        .ghh3-snippet-dialog{display:flex;flex-direction:column;width:min(760px,calc(100vw - 30px));height:min(500px,calc(100vh - 40px));box-sizing:border-box;background:#17222c;color:#d7e3ec;border:1px solid #344958;border-radius:9px;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:14px}.ghh3-snippet-title{font-size:13px;margin-bottom:12px}.ghh3-snippet-body{display:grid;grid-template-columns:220px minmax(0,1fr);gap:12px;min-height:0;flex:1}.ghh3-snippet-sidebar,.ghh3-snippet-editor{display:flex;flex-direction:column;min-height:0}.ghh3-snippet-list{flex:1;min-height:0;overflow:auto;border:1px solid #344958;border-radius:5px;background:#111b24;padding:4px}.ghh3-snippet-item{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;border:0;border-radius:4px;background:transparent;color:#bdcad3;padding:7px 8px;cursor:pointer;font:12px/1.25 Arial,sans-serif}.ghh3-snippet-item:hover,.ghh3-snippet-item.active{background:#254554;color:#e6f2f6}.ghh3-snippet-empty{padding:10px 8px;color:#718592;text-align:center}.ghh3-snippet-sidebar-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}.ghh3-snippet-sidebar-actions button,.ghh3-snippet-actions button{border:1px solid #3a5363;border-radius:4px;background:#1d2b36;color:#dce7ee;padding:6px 10px;cursor:pointer}.ghh3-snippet-sidebar-actions button:disabled,.ghh3-snippet-actions button:disabled{opacity:.4;cursor:not-allowed}.ghh3-snippet-field{display:flex;flex-direction:column;gap:5px;margin-bottom:9px;color:#9eafba}.ghh3-snippet-field input,.ghh3-snippet-field textarea{width:100%;box-sizing:border-box;background:#111b24;color:#e0ebf1;border:1px solid #3a4d5b;border-radius:5px;padding:8px;font:12px/1.45 Arial,sans-serif;outline:none}.ghh3-snippet-field input:focus,.ghh3-snippet-field textarea:focus{border-color:#2b8195}.ghh3-snippet-field textarea{flex:1;min-height:0;resize:none;white-space:pre-wrap}.ghh3-snippet-field-content{flex:1;min-height:0}.ghh3-snippet-validation{min-height:16px;color:#d98d97;font-size:11px}.ghh3-snippet-validation.dirty{color:#c9a96b}.ghh3-snippet-validation.saved{color:#63b989}.ghh3-snippet-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:8px}.ghh3-snippet-actions .ghh3-snippet-save,.ghh3-snippet-actions button:last-child{background:#17535a;border-color:#26717a;color:#e8f6f6}
     `;
     root.appendChild(style);
     const size = make("div"); size.className = "ghh3-size";
@@ -595,7 +638,7 @@ function createPanel(node) {
         prompt.focus(); setEditorSelection(caret[0], caret[1]);
     };
     prompt.value = promptPlainText;
-    prompt.placeholder = t("Prompt:\nClick an uploaded asset to insert its tag, e.g. <picture 1>, <video 1>, or <audio 2>;\nDouble-click a video to insert its audio tag; mute a video at the top-right to exclude its audio from references");
+    prompt.placeholder = t("Prompt:\nType @ to choose attached media; type # to insert a code snippet; click an uploaded asset to insert its tag, e.g. <picture 1>, <video 1>, or <audio 2>;\nDouble-click a video to insert its audio tag; mute a video at the top-right to exclude its audio from references");
     const legacyPrompt = cleanPrompt(savedState.prompt) || prompt.value;
     const savedPrompts = savedState.prompts && typeof savedState.prompts === "object" ? savedState.prompts : null;
     const savedMode = savedState.mode || widget(node, "main_mode")?.value || "text_keyframes";
@@ -623,10 +666,146 @@ function createPanel(node) {
     const optimizerModelName = make("span"); optimizerModelName.className = "ghh3-optimizer-model";
     const optimizePrompt = make("button", {}, "✦"); optimizePrompt.className = "ghh3-prompt-tool ghh3-optimize-tool";
     const optimizerGear = make("button", {}, "⚙"); optimizerGear.className = "ghh3-prompt-tool";
-    promptTools.append(elapsedPrompt, optimizerModelName, resetPrompt, optimizePrompt, optimizerGear); promptWrap.append(promptTools, promptHighlight, prompt);
+    const snippetGear = make("button"); snippetGear.className = "ghh3-prompt-tool ghh3-snippet-tool";
+    snippetGear.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.5 7-5 5 5 5M15.5 7l5 5-5 5M14 4 10 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    snippetGear.setAttribute("aria-label", t("Configure code snippets"));
+    const mentionMenu = make("div"); mentionMenu.className = "ghh3-mention-menu";
+    const mentionState = { open: false, active: null, choices: [], index: 0 };
+    let promptSnippets = loadPromptSnippets();
+    let closeSnippetSettings = null;
+    promptTools.append(elapsedPrompt, optimizerModelName, resetPrompt, optimizePrompt, optimizerGear, snippetGear); promptWrap.append(promptTools, promptHighlight, prompt, mentionMenu);
     const syncPromptHighlightGeometry = () => {
         promptHighlightContent.style.width = `${prompt.clientWidth}px`;
     };
+    const mediaTagFor = (kind, slot) => {
+        const raw = labelFor(slot, kind);
+        const task = resolvedTaskType();
+        if (slot === "first_frame" || slot === "last_frame") {
+            const hasBothKeyframes = mediaHas("first_frame") && mediaHas("last_frame");
+            const ordinal = (task === "FL2VA" || (task === "Hybrid" && hasBothKeyframes))
+                ? (slot === "first_frame" ? 1 : 2)
+                : 1;
+            return task === "FL2VA" ? `Picture ${ordinal}` : `<Picture ${ordinal}>`;
+        }
+        return raw.startsWith("picture ") ? `<Picture ${raw.slice(8)}>`
+            : raw.startsWith("video ") ? `<Video ${raw.slice(6)}>`
+            : raw.startsWith("audio ") ? `<Audio ${raw.slice(6)}>`
+            : `<${raw}>`;
+    };
+    const mentionKindLabel = kind => {
+        if (!isChineseLocale()) return kind === "image" ? "Image" : kind === "video" ? "Video" : "Audio";
+        return kind === "image" ? "图片" : kind === "video" ? "视频" : "音频";
+    };
+    const mediaMentionChoices = () => {
+        const choices = [];
+        const add = (slot, kind, tag, label = labelFor(slot, kind)) => {
+            const entry = mediaEntry(slot);
+            if (!entry) return;
+            choices.push({ slot, kind, tag, label, name: entry.name || "", search: `${label} ${entry.name || ""} ${tag} ${mentionKindLabel(kind)}`.toLowerCase() });
+        };
+        if (state.mode === "text_keyframes") {
+            for (const slot of ["first_frame", "last_frame"]) {
+                if (mediaEntry(slot)?.kind === "image") add(slot, "image", mediaTagFor("image", slot));
+            }
+            if (mediaEntry("hybrid_audio")?.kind === "audio") add("hybrid_audio", "audio", "<Audio 1>", t("Reference audio"));
+            return choices;
+        }
+        const references = mediaEntries()
+            .filter(([slot]) => slot.startsWith("ref_"))
+            .sort((a, b) => typeOrder[a[1]?.kind] - typeOrder[b[1]?.kind] || a[0].localeCompare(b[0]));
+        for (const [slot, entry] of references) {
+            if (!entry?.kind) continue;
+            if (entry.kind === "image" || entry.kind === "video") add(slot, entry.kind, mediaTagFor(entry.kind, slot));
+        }
+        for (const [slot, entry] of references) {
+            if (entry?.kind === "video" && !entry.muted) {
+                const ordinal = audioOrdinalFor(slot);
+                if (ordinal) add(slot, "audio", `<Audio ${ordinal}>`, `${labelFor(slot, "video")} · ${t("Audio")}`);
+            }
+        }
+        for (const [slot, entry] of references) {
+            if (entry?.kind === "audio") add(slot, "audio", mediaTagFor("audio", slot));
+        }
+        return choices;
+    };
+    const snippetMentionChoices = () => promptSnippets
+        .filter(snippet => snippet.name)
+        .map(snippet => ({
+            id: snippet.id,
+            kind: "snippet",
+            label: snippet.name,
+            replacement: snippet.content,
+            preview: snippet.content.replace(/\s+/g, " ").trim(),
+            search: snippet.name.toLocaleLowerCase(),
+        }));
+    const activeMention = () => {
+        if (prompt.readOnly) return null;
+        const [selectionStart, end] = selectionOffsets();
+        if (selectionStart !== end) return null;
+        const source = String(prompt.value || "");
+        const searchFrom = Math.max(0, end - 1);
+        const at = source.lastIndexOf("@", searchFrom);
+        const hash = source.lastIndexOf("#", searchFrom);
+        const triggerStart = Math.max(at, hash);
+        if (triggerStart < 0 || triggerStart >= end) return null;
+        const trigger = source[triggerStart];
+        const before = source[triggerStart - 1] || "";
+        // Do not turn an e-mail address or ASCII word-internal @ into a media
+        // picker. A snippet # deliberately works after any preceding text.
+        if (trigger === "@" && before && /[A-Za-z0-9_.+-]/.test(before)) return null;
+        const query = source.slice(triggerStart + 1, end);
+        if (trigger === "@" ? /\s|[@#]/.test(query) : !query || /[@#]/.test(query) || PROMPT_SNIPPET_TERMINATOR.test(query)) return null;
+        return { start: triggerStart, end, query, trigger };
+    };
+    const closeMentionMenu = () => {
+        mentionState.open = false; mentionState.active = null; mentionState.choices = []; mentionState.index = 0;
+        mentionMenu.classList.remove("open"); mentionMenu.replaceChildren();
+    };
+    const chooseMention = choice => {
+        const active = activeMention() || mentionState.active;
+        if (!choice || !active || upstreamConnected()) { closeMentionMenu(); return; }
+        const before = promptSnapshot();
+        prompt.setRangeText(choice.replacement ?? choice.tag ?? "", active.start, active.end, "end");
+        pushPromptUndo(before);
+        promptByMode[state.mode] = prompt.value;
+        setPromptWidget(node, prompt.value);
+        persistState();
+        closeMentionMenu();
+    };
+    const renderMentionMenu = () => {
+        const active = activeMention();
+        if (!active) { closeMentionMenu(); return; }
+        const query = active.query.toLocaleLowerCase();
+        const allChoices = active.trigger === "#" ? snippetMentionChoices() : mediaMentionChoices();
+        const choices = allChoices.filter(choice => active.trigger === "#" ? choice.search === query : (!query || choice.search.includes(query)));
+        if (active.trigger === "#" && !choices.length) { closeMentionMenu(); return; }
+        mentionState.open = true; mentionState.active = active; mentionState.choices = choices;
+        mentionState.index = Math.max(0, Math.min(mentionState.index, Math.max(0, choices.length - 1)));
+        mentionMenu.replaceChildren();
+        if (!choices.length) {
+            mentionMenu.appendChild(make("div", {}, t(active.trigger === "#" ? "No matching snippets" : "No available media"))).className = "ghh3-mention-empty";
+        } else {
+            choices.forEach((choice, index) => {
+                const option = make("button"); option.type = "button"; option.className = "ghh3-mention-option";
+                option.classList.toggle("active", index === mentionState.index);
+                const snippet = choice.kind === "snippet";
+                option.append(
+                    make("span", {}, snippet ? "#" : mentionKindLabel(choice.kind)),
+                    make("span", {}, snippet ? choice.label : `${choice.label}${choice.name ? ` · ${choice.name}` : ""}`),
+                    make("span", {}, snippet ? choice.preview : choice.tag),
+                );
+                option.children[0].className = "ghh3-mention-kind";
+                option.children[1].className = "ghh3-mention-name";
+                option.children[2].className = "ghh3-mention-tag";
+                option.onpointerdown = event => { event.preventDefault(); event.stopPropagation(); };
+                option.onclick = event => { event.preventDefault(); event.stopPropagation(); chooseMention(choice); };
+                mentionMenu.appendChild(option);
+            });
+        }
+        mentionMenu.classList.add("open");
+    };
+    const updateMentionMenu = () => renderMentionMenu();
+    mentionMenu.onpointerdown = event => event.stopPropagation();
     const requestPromptVideoThumbnail = name => {
         if (!name) return null;
         const cached = promptVideoThumbnailCache.get(name);
@@ -1062,7 +1241,8 @@ function nodeColorToCss(value) {
         taskStatus.textContent = `${resolvedTaskType()} · ${taskLabel(resolvedTaskType())}`;
         modeText.textContent = t("First/last frames / Text-to-video");
         modeRef.textContent = t("All-purpose reference");
-        prompt.placeholder = t("Prompt:\nClick an uploaded asset to insert its tag, e.g. <picture 1>, <video 1>, or <audio 2>;\nDouble-click a video to insert its audio tag; mute a video at the top-right to exclude its audio from references");
+        prompt.placeholder = t("Prompt:\nType @ to choose attached media; type # to insert a code snippet; click an uploaded asset to insert its tag, e.g. <picture 1>, <video 1>, or <audio 2>;\nDouble-click a video to insert its audio tag; mute a video at the top-right to exclude its audio from references");
+        snippetGear.setAttribute("aria-label", t("Configure code snippets"));
         advancedSummary.textContent = t("Advanced options");
         for (const label of advancedLabels.values()) label.textContent = t(label.dataset.ghh3Translation);
         localizedSelects.forEach(control => control._ghH3SyncOptions?.());
@@ -1072,6 +1252,13 @@ function nodeColorToCss(value) {
     // Read locale at node initialization. A storage event can still refresh
     // the UI after a real settings change, but no periodic polling is needed.
     window.addEventListener("storage", applyLocale);
+    const refreshPromptSnippets = event => {
+        if (event?.type === "storage" && event.key !== PROMPT_SNIPPETS_STORAGE_KEY) return;
+        promptSnippets = Array.isArray(event?.detail) ? normalizePromptSnippets(event.detail) : loadPromptSnippets();
+        if (mentionState.open && mentionState.active?.trigger === "#") updateMentionMenu();
+    };
+    window.addEventListener("storage", refreshPromptSnippets);
+    window.addEventListener(PROMPT_SNIPPETS_CHANGED_EVENT, refreshPromptSnippets);
     advanced.addEventListener("toggle", () => { persistState(); });
     root.appendChild(promptWrap); root.appendChild(advanced);
     const commitPromptEditorInput = () => {
@@ -1086,9 +1273,9 @@ function nodeColorToCss(value) {
         }
         promptByMode[state.mode] = prompt.value; setPromptWidget(node, prompt.value); persistState();
     };
-    prompt.addEventListener("compositionstart", () => { pendingPromptSnapshot ||= promptSnapshot(); promptComposing = true; });
-    prompt.addEventListener("compositionend", () => { promptComposing = false; commitPromptEditorInput(); });
-    prompt.addEventListener("input", () => { if (!promptComposing) commitPromptEditorInput(); });
+    prompt.addEventListener("compositionstart", () => { pendingPromptSnapshot ||= promptSnapshot(); promptComposing = true; closeMentionMenu(); });
+    prompt.addEventListener("compositionend", () => { promptComposing = false; commitPromptEditorInput(); updateMentionMenu(); });
+    prompt.addEventListener("input", () => { if (!promptComposing) { commitPromptEditorInput(); updateMentionMenu(); } });
     prompt.addEventListener("beforeinput", event => {
         if (prompt.readOnly) return;
         if (["historyUndo", "historyRedo"].includes(event.inputType)) {
@@ -1107,9 +1294,32 @@ function nodeColorToCss(value) {
         const [start, end] = selectionOffsets();
         promptPlainText = editorText();
         prompt.setRangeText("\n", start, end, "end");
+        closeMentionMenu();
         pushPromptUndo(pendingPromptSnapshot); pendingPromptSnapshot = null;
         promptByMode[state.mode] = prompt.value; setPromptWidget(node, prompt.value); persistState();
     });
+    prompt.addEventListener("keydown", event => {
+        if (!mentionState.open) return;
+        if (event.key === "Escape") {
+            event.preventDefault(); event.stopPropagation(); closeMentionMenu();
+            return;
+        }
+        if (!mentionState.choices.length) return;
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault(); event.stopPropagation();
+            const delta = event.key === "ArrowDown" ? 1 : -1;
+            mentionState.index = (mentionState.index + delta + mentionState.choices.length) % mentionState.choices.length;
+            renderMentionMenu();
+            return;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault(); event.stopPropagation();
+            chooseMention(mentionState.choices[mentionState.index]);
+        }
+    });
+    prompt.addEventListener("focusout", () => setTimeout(() => {
+        if (document.activeElement !== prompt && !mentionMenu.contains(document.activeElement)) closeMentionMenu();
+    }, 0));
     const isPromptHistoryKey = event => {
         if (document.activeElement !== prompt || prompt.readOnly || !(event.ctrlKey || event.metaKey) || event.altKey) return;
         const key = String(event.key || "").toLowerCase();
@@ -1135,6 +1345,7 @@ function nodeColorToCss(value) {
         const external = upstreamConnected();
         const localBlocked = workflowRunning && optimizerSettings?.mode === "local";
         prompt.readOnly = external;
+        if (external) closeMentionMenu();
         promptWrap.classList.toggle("external", external);
         prompt.title = external ? t("Prompt is connected to an upstream node; the internal prompt is disabled!") : "";
         optimizePrompt.disabled = external || localBlocked;
@@ -1169,6 +1380,7 @@ function nodeColorToCss(value) {
     delayedTooltip(optimizePrompt, () => t(optimizing ? "Optimizing click to cancel" : "Optimize prompt"));
     delayedTooltip(resetPrompt, () => t("Restore before optimization"));
     delayedTooltip(optimizerGear, () => t("Configure API"));
+    delayedTooltip(snippetGear, () => t("Configure code snippets"));
     prompt.addEventListener("pointerdown", e => { if (e.button !== 1) e.stopPropagation(); });
     const promptCanConsumeWheel = event => {
         const inPrompt = event.composedPath?.().includes(prompt) || event.target === prompt;
@@ -1686,24 +1898,11 @@ function nodeColorToCss(value) {
             if (entry?.kind === "video" && entry.name) promptVideoThumbnailCache.delete(entry.name);
         }
         renderPromptHighlights();
+        if (mentionState.open) updateMentionMenu();
     };
     function insertTag(kind, slot) {
         if (upstreamConnected()) return;
-        const raw = labelFor(slot, kind);
-        const task = resolvedTaskType();
-        let tag;
-        if (slot === "first_frame" || slot === "last_frame") {
-            const hasBothKeyframes = mediaHas("first_frame") && mediaHas("last_frame");
-            const ordinal = (task === "FL2VA" || (task === "Hybrid" && hasBothKeyframes))
-                ? (slot === "first_frame" ? 1 : 2)
-                : 1;
-            tag = task === "FL2VA" ? `Picture ${ordinal}` : `<Picture ${ordinal}>`;
-        } else {
-            tag = raw.startsWith("picture ") ? `<Picture ${raw.slice(8)}>`
-                : raw.startsWith("video ") ? `<Video ${raw.slice(6)}>`
-                : raw.startsWith("audio ") ? `<Audio ${raw.slice(6)}>`
-                : `<${raw}>`;
-        }
+        const tag = mediaTagFor(kind, slot);
         const a = document.activeElement === prompt ? prompt.selectionStart : prompt.value.length;
         const b = document.activeElement === prompt ? prompt.selectionEnd : a;
         prompt.setRangeText(tag, a, b, "end");
@@ -1711,6 +1910,7 @@ function nodeColorToCss(value) {
         promptByMode[state.mode] = prompt.value;
         setPromptWidget(node, prompt.value);
         persistState();
+        closeMentionMenu();
     }
     function insertVideoAudioTag(slot) {
         if (upstreamConnected()) return;
@@ -1718,7 +1918,7 @@ function nodeColorToCss(value) {
         if (mediaEntry(slot)?.muted || !ordinal) return;
         const a = document.activeElement === prompt ? prompt.selectionStart : prompt.value.length;
         const b = document.activeElement === prompt ? prompt.selectionEnd : a;
-        prompt.setRangeText(`<Audio ${ordinal}>`, a, b, "end"); renderPromptHighlights(); promptByMode[state.mode] = prompt.value; setPromptWidget(node, prompt.value); persistState();
+        prompt.setRangeText(`<Audio ${ordinal}>`, a, b, "end"); renderPromptHighlights(); promptByMode[state.mode] = prompt.value; setPromptWidget(node, prompt.value); persistState(); closeMentionMenu();
     }
     function ensureReferenceTags() {
         if (state.mode !== "all_reference" || !prompt.value) return;
@@ -1800,6 +2000,169 @@ function nodeColorToCss(value) {
         optimizerSettings = migrateLegacyOptimizerDefault(await response.json());
         refreshOptimizerName(); refreshPromptConnection();
         return optimizerSettings;
+    }
+    function openSnippetSettings() {
+        closeSnippetSettings?.();
+        closeMentionMenu();
+        const draft = promptSnippets.map(snippet => ({ ...snippet }));
+        let selectedId = draft[0]?.id || null;
+        let syncingEditor = false;
+        let savedSignature = JSON.stringify(draft);
+        let showSavedStatus = false;
+        let lastEditorSelection = null;
+
+        const overlay = make("div"); overlay.className = "ghh3-opt-overlay";
+        const dialog = make("div"); dialog.className = "ghh3-snippet-dialog"; overlay.append(dialog);
+        const title = make("div", {}, t("Code snippets")); title.className = "ghh3-snippet-title"; dialog.append(title);
+        const body = make("div"); body.className = "ghh3-snippet-body"; dialog.append(body);
+        const sidebar = make("div"); sidebar.className = "ghh3-snippet-sidebar";
+        const list = make("div"); list.className = "ghh3-snippet-list";
+        const sidebarActions = make("div"); sidebarActions.className = "ghh3-snippet-sidebar-actions";
+        const add = make("button", {}, `＋ ${t("Add snippet")}`);
+        const remove = make("button", {}, `− ${t("Delete snippet")}`);
+        sidebarActions.append(add, remove); sidebar.append(list, sidebarActions);
+
+        const editor = make("div"); editor.className = "ghh3-snippet-editor";
+        const nameField = make("label"); nameField.className = "ghh3-snippet-field";
+        const nameLabel = make("span", {}, t("Snippet name"));
+        const nameInput = make("input"); nameInput.type = "text"; nameInput.autocomplete = "off";
+        nameField.append(nameLabel, nameInput);
+        const contentField = make("label"); contentField.className = "ghh3-snippet-field ghh3-snippet-field-content";
+        const contentLabel = make("span", {}, t("Snippet content"));
+        const contentInput = make("textarea"); contentInput.spellcheck = false;
+        contentField.append(contentLabel, contentInput);
+        const validation = make("div"); validation.className = "ghh3-snippet-validation";
+        editor.append(nameField, contentField, validation); body.append(sidebar, editor);
+
+        const actions = make("div"); actions.className = "ghh3-snippet-actions";
+        const cancel = make("button", {}, t("Cancel"));
+        const save = make("button", {}, t("Save"));
+        save.className = "ghh3-snippet-save";
+        const saveAndClose = make("button", {}, t("Save and close"));
+        actions.append(cancel, save, saveAndClose); dialog.append(actions);
+
+        const selectedSnippet = () => draft.find(snippet => snippet.id === selectedId) || null;
+        const draftSignature = () => JSON.stringify(draft);
+        const validationMessage = () => {
+            if (draft.some(snippet => !snippet.name.trim())) return t("Snippet name is required");
+            const names = draft.map(snippet => snippet.name.trim().toLocaleLowerCase());
+            if (new Set(names).size !== names.length) return t("Snippet names must be unique");
+            return "";
+        };
+        const validate = () => {
+            const message = validationMessage();
+            const dirty = draftSignature() !== savedSignature;
+            validation.classList.toggle("dirty", !message && dirty);
+            validation.classList.toggle("saved", !message && !dirty && showSavedStatus);
+            validation.textContent = message || (dirty ? t("Unsaved changes") : showSavedStatus ? t("Saved") : "");
+            save.disabled = !!message || !dirty;
+            saveAndClose.disabled = !!message;
+            return !message;
+        };
+        const renderList = () => {
+            list.replaceChildren();
+            if (!draft.length) {
+                const empty = make("div", {}, t("No snippets yet")); empty.className = "ghh3-snippet-empty"; list.append(empty);
+            } else {
+                for (const snippet of draft) {
+                    const item = make("button", {}, snippet.name || t("Snippet name is required"));
+                    item.type = "button"; item.className = "ghh3-snippet-item";
+                    item.classList.toggle("active", snippet.id === selectedId);
+                    item.onclick = () => { selectedId = snippet.id; renderList(); renderEditor(); };
+                    list.append(item);
+                }
+            }
+            remove.disabled = !selectedSnippet();
+        };
+        const renderEditor = () => {
+            const snippet = selectedSnippet();
+            syncingEditor = true;
+            nameInput.disabled = !snippet; contentInput.disabled = !snippet;
+            nameInput.value = snippet?.name || ""; contentInput.value = snippet?.content || "";
+            syncingEditor = false;
+            validate();
+        };
+        const uniqueNewName = () => {
+            const base = t("New snippet");
+            const used = new Set(draft.map(snippet => snippet.name.trim().toLocaleLowerCase()));
+            if (!used.has(base.toLocaleLowerCase())) return base;
+            let index = 2;
+            while (used.has(`${base} ${index}`.toLocaleLowerCase())) index++;
+            return `${base} ${index}`;
+        };
+        nameInput.addEventListener("input", () => {
+            if (syncingEditor) return;
+            const snippet = selectedSnippet(); if (!snippet) return;
+            snippet.name = nameInput.value; renderList(); validate();
+        });
+        contentInput.addEventListener("input", () => {
+            if (syncingEditor) return;
+            const snippet = selectedSnippet(); if (snippet) snippet.content = contentInput.value;
+            validate();
+        });
+        const rememberEditorSelection = () => {
+            const control = document.activeElement;
+            if (control !== nameInput && control !== contentInput) return;
+            lastEditorSelection = { control, start: control.selectionStart ?? 0, end: control.selectionEnd ?? 0 };
+        };
+        for (const control of [nameInput, contentInput]) {
+            for (const eventName of ["focus", "input", "select", "keyup", "click"]) control.addEventListener(eventName, rememberEditorSelection);
+        }
+        add.onclick = () => {
+            const snippet = { id: promptSnippetId(), name: uniqueNewName(), content: "" };
+            draft.push(snippet); selectedId = snippet.id; renderList(); renderEditor();
+            requestAnimationFrame(() => { nameInput.focus(); nameInput.select(); });
+        };
+        remove.onclick = () => {
+            const index = draft.findIndex(snippet => snippet.id === selectedId);
+            if (index < 0) return;
+            draft.splice(index, 1);
+            selectedId = draft[Math.min(index, draft.length - 1)]?.id || null;
+            renderList(); renderEditor();
+        };
+        const close = () => {
+            overlay.remove();
+            if (closeSnippetSettings === close) closeSnippetSettings = null;
+        };
+        const persistSnippets = closeAfter => {
+            if (!validate()) return;
+            const focus = lastEditorSelection;
+            for (const snippet of draft) snippet.name = snippet.name.trim();
+            try {
+                promptSnippets = savePromptSnippets(draft);
+            } catch (error) {
+                validation.classList.remove("dirty", "saved");
+                validation.textContent = `${t("Unable to save snippets")}: ${error?.message || error}`;
+                return;
+            }
+            savedSignature = draftSignature();
+            showSavedStatus = true;
+            renderList();
+            const selected = selectedSnippet();
+            if (selected) nameInput.value = selected.name;
+            validate();
+            if (closeAfter) { close(); return; }
+            requestAnimationFrame(() => {
+                if (!focus?.control?.isConnected) return;
+                focus.control.focus();
+                const length = focus.control.value.length;
+                focus.control.setSelectionRange(Math.min(focus.start, length), Math.min(focus.end, length));
+            });
+        };
+        closeSnippetSettings = close;
+        cancel.onclick = close;
+        save.addEventListener("pointerdown", rememberEditorSelection);
+        saveAndClose.addEventListener("pointerdown", rememberEditorSelection);
+        save.onclick = () => persistSnippets(false);
+        saveAndClose.onclick = () => persistSnippets(true);
+        overlay.addEventListener("pointerdown", event => { if (event.target === overlay) close(); });
+        overlay.addEventListener("keydown", event => {
+            if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === "s") {
+                event.preventDefault(); event.stopPropagation(); persistSnippets(false); return;
+            }
+            if (event.key === "Escape") { event.preventDefault(); close(); }
+        });
+        renderList(); renderEditor(); document.body.append(overlay);
     }
     function openOptimizerSettings() {
         loadOptimizerSettings().then(current => {
@@ -2105,6 +2468,7 @@ function nodeColorToCss(value) {
         } catch {}
     }
     optimizerGear.onclick = openOptimizerSettings;
+    snippetGear.onclick = openSnippetSettings;
     resetPrompt.onclick = () => {
         if (optimizerBefore == null || upstreamConnected()) return;
         if (optimizerCache?.originalPrompt === optimizerBefore) optimizerCache.result = prompt.value;
@@ -2727,6 +3091,7 @@ function nodeColorToCss(value) {
     window.addEventListener("dragover", captureMaterialDrop, true);
     window.addEventListener("drop", captureMaterialDrop, true);
     function switchMode(nextMode) {
+        closeMentionMenu();
         promptByMode[state.mode] = prompt.value;
         state.mode = nextMode;
         optimizerBefore = optimizerBeforeByMode[state.mode] ?? null;
@@ -2886,6 +3251,7 @@ function nodeColorToCss(value) {
         if (optimizerRequestId) api.fetchApi("/wzq/minimax-h3/prompt-optimizer/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ request_id: optimizerRequestId }) }).catch(() => {});
         stopActiveMedia();
         closeActiveTrimEditor?.();
+        closeSnippetSettings?.();
         decodedAudioCache.clear();
         promptHighlightResizeObserver.disconnect();
         window.removeEventListener("dragenter", captureMaterialDrop, true);
@@ -2897,6 +3263,8 @@ function nodeColorToCss(value) {
         window.removeEventListener("keydown", capturePromptHistoryKeys, true);
         window.removeEventListener("keyup", releasePromptHistoryKeys, true);
         window.removeEventListener("storage", applyLocale);
+        window.removeEventListener("storage", refreshPromptSnippets);
+        window.removeEventListener(PROMPT_SNIPPETS_CHANGED_EVENT, refreshPromptSnippets);
         return oldRemoved?.apply(this, args);
     };
     const initialRestoreEpoch = restoreEpoch;
