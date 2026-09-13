@@ -8,6 +8,8 @@ from typing import Any
 
 import torch
 
+from . import categories
+
 
 _HEX_COLOR = re.compile(r"^#?([0-9a-fA-F]{6})$")
 
@@ -34,10 +36,16 @@ class WZQCanvasExtend:
     RETURN_TYPES = ("IMAGE", "MASK", "MASK", "STRING")
     RETURN_NAMES = ("output_image", "extend_mask", "image_mask", "extend_data")
     FUNCTION = "process_canvas"
-    CATEGORY = "wzq/image"
+    CATEGORY = categories.IMAGE
     DESCRIPTION = (
         "在节点画布中交互式裁剪或扩展图像。extend_mask 标记新增画布，"
         "image_mask 在原图尺寸中标记裁剪框覆盖区域。"
+    )
+    OUTPUT_TOOLTIPS = (
+        "裁剪或扩展后的图像。",
+        "与输出图像同尺寸，新增画布区域为白色。",
+        "与原图同尺寸，裁剪框覆盖到的原图区域为白色。",
+        "left/right/top/bottom 四边参数的 JSON 字符串。",
     )
 
     @staticmethod

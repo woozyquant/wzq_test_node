@@ -4,6 +4,8 @@ import folder_paths
 import comfy.utils
 import comfy.sd
 
+from . import categories
+
 
 class AnyType(str):
     """A wildcard ComfyUI type used by dynamic widget inputs."""
@@ -50,7 +52,9 @@ class MyLoraLoaderModelOnly:
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("MODEL",)
     FUNCTION = "apply_lora_model_only"
-    CATEGORY = "test_nodes📀/wzq"  # 节点在菜单中显示的位置
+    CATEGORY = categories.LORA  # 节点在菜单中显示的位置
+    DESCRIPTION = "给 MODEL 加载单个 LoRA，只作用于模型权重，不修改 CLIP。"
+    OUTPUT_TOOLTIPS = ("已应用 LoRA 的模型。",)
 
     def apply_lora_model_only(self, model, lora_name, strength_model):
         # 1. 如果强度为0，直接返回原模型，不做任何处理
@@ -103,7 +107,9 @@ class MyMultiLoraLoaderModelOnly:
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("MODEL",)
     FUNCTION = "apply_loras_model_only"
-    CATEGORY = "test_nodes📂/wzq"
+    CATEGORY = categories.LORA
+    DESCRIPTION = "在节点面板中动态增删任意数量的 LoRA 并逐个作用于 MODEL，不修改 CLIP。"
+    OUTPUT_TOOLTIPS = ("已依次应用全部启用 LoRA 的模型。",)
 
     def apply_loras_model_only(self, model=None, **kwargs):
         if model is None:
@@ -171,8 +177,10 @@ class MyLocalLoraOnlyGallery:
     RETURN_NAMES = ("loraName",)
 
     FUNCTION = "load_loras"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.LORA
     OUTPUT_NODE = True
+    DESCRIPTION = "本地 LoRA 图库面板：浏览并勾选本地 LoRA，输出所选 LoRA 的名称。"
+    OUTPUT_TOOLTIPS = ("所选 LoRA 的文件名。",)
 
     def load_loras(self, unique_id, selection_data="[]", **kwargs):
         try:

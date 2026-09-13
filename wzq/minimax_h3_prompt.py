@@ -11,6 +11,7 @@ import json
 import math
 
 from ..prompt_tags import prepare_prompt
+from . import categories
 
 
 MEDIA_SLOTS = (
@@ -390,8 +391,9 @@ class WZQMiniMaxH3Prompt:
     RETURN_TYPES = ("STRING", MEDIA_TYPE)
     RETURN_NAMES = ("final_prompt", "media_out")
     FUNCTION = "final_prompt"
-    CATEGORY = "WZQ/MiniMax H3"
+    CATEGORY = categories.MINIMAX_H3
     DESCRIPTION = "MiniMax H3 rich prompt editor with final_prompt and chainable media_out outputs."
+    OUTPUT_TOOLTIPS = ("供下游 MiniMax H3 节点使用的最终提示词。", "可继续串联的媒体包。")
 
     def final_prompt(
         self,
@@ -470,8 +472,9 @@ class WZQMiniMaxH3MediaInput:
     RETURN_TYPES = (MEDIA_TYPE,)
     RETURN_NAMES = ("media_out",)
     FUNCTION = "pack"
-    CATEGORY = "WZQ/MiniMax H3"
+    CATEGORY = categories.MINIMAX_H3
     DESCRIPTION = "Packs multiple IMAGE, VIDEO, and AUDIO inputs into WZQ_H3_MEDIA."
+    OUTPUT_TOOLTIPS = ("包含全部输入素材的媒体包。",)
 
     def pack(self, media_in=None, **kwargs):
         bundle = _normalize_media_bundle(media_in)
@@ -515,7 +518,7 @@ class WZQMiniMaxH3MediaOutput:
         *(f"ref_video_audio_{index}" for index in range(1, 4)),
     )
     FUNCTION = "unpack"
-    CATEGORY = "WZQ/MiniMax H3"
+    CATEGORY = categories.MINIMAX_H3
     DESCRIPTION = "Unpacks H3 media; ref_video outputs are 24 fps IMAGE batches compatible with MiniMax H3 Reference to Video."
 
     def unpack(self, media_in):

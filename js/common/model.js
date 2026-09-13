@@ -1,5 +1,7 @@
-import { $el, ComfyDialog } from "../../../../scripts/ui.js";
-import { api } from "../../../../scripts/api.js";
+// 用根路径绝对导入，避免依赖本文件在 /extensions/... 下的层级。
+// 实测：/scripts/api.js = 200，而相对 ../ 会落到 /extensions/... 下并 404。
+import { $el, ComfyDialog } from "/scripts/ui.js";
+import { api } from "/scripts/api.js";
 import {formatTime} from './utils.js';
 import {$t} from "./i18n.js";
 import {toast} from "./toast.js";

@@ -34,6 +34,8 @@ from .wzq.minimax_h3_prompt import (
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
 from .wzq import server as _wzq_server  # noqa: F401
+# Local LoRA Gallery 依赖的 /localloragallery/* 接口
+from .wzq import gallery_server as _wzq_gallery_server  # noqa: F401
 from . import minimax_h3_prompt_optimizer as _minimax_h3_prompt_optimizer  # noqa: F401
 
 # （必填）填写 import的类名称，命名需要唯一，key或value与其他插件冲突可能引用不了。这是决定是否能引用的关键。
@@ -71,18 +73,47 @@ NODE_CLASS_MAPPINGS = {
 
 # （可不写）填写 ui界面显示名称，命名会显示在节点ui左上角，如不写会用类的名称显示在节点ui上
 # key(自定义):value(ui显示的名称)
+# 注意：这里的 key 必须和 NODE_CLASS_MAPPINGS 的 key 逐字一致，否则该条会被静默忽略，
+# 节点只能显示裸类名（例如 mySizexxx）。注册 key 本身带有历史遗留的 xxx / my 前缀，
+# 已保存的工作流依赖它们，因此只改显示名，不改 key。
 NODE_DISPLAY_NAME_MAPPINGS = {
 
-    "myMultiLoraLoaderModelOnlyxxx": "Multi Lora Loader (Model Only)",
-    "mySplit":"SplitSDGenerationData",
-    "ImageResizer": "Image Resizer",
+    # 文本与工具
+    "mySplit": "Split SD Generation Data",
+    "myCheckStringEmptyxxx": "Check String Empty",
+    "myBatchCount": "Batch Count",
+    "myEasySeedxxx": "Easy Seed",
+    "myCurrentTimexxx": "Current Time",
+
+    # 工具
+    "myReroute": "Reroute (Any)",
+    "myReroute3": "Reroute (Any ×3)",
+    "myReroutexxx": "Reroute (Model / VAE / CLIP)",
+
+    # 尺寸与潜空间
+    "myImageSizexxx": "Image Size",
+    "mySizexxx": "Size (Width / Height)",
+    "myEmptyLatentxxx": "Empty Latent (Resolution)",
+    "myEmptyLatentQwenxxx": "Empty Latent (Qwen Ratio)",
+
+    # 图像
+    "wzq_image_out": "Smart Image Size",
+    "myWZQCanvasExtend": "🖼️Interactive Canvas Crop / Extend",
+    "myImageResizer": "Image Resizer",
+    "myImageTiled": "Image Tile Batch",
     "MaskApplierAndCombiner": "🎭Mask Applier and Combiner",
-    "myLocalLoraOnlyGalleryxxx": "🖼️Local Lora Gallery",
-    "WZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
-    "myWZQCanvasExtend": "WZQ交互式裁剪可扩展画布",
+    "myMaskFillHoles": "Mask Fill Holes",
+
+    # LoRA
+    "myLoraLoaderModelOnlyxxx": "LoRA Loader (Model Only)",
+    "myMultiLoraLoaderModelOnlyxxx": "Multi LoRA Loader (Model Only)",
+    "myLocalLoraOnlyGalleryxxx": "🖼️Local LoRA Gallery",
+
+    # 加载器
     "WZQImageLoader": "WZQ 图像加载器",
     "WZQAudioLoader": "WZQ 音频加载器",
-    "wzq_image_out": "wzq_image_out",
+
+    # MiniMax H3
     "WZQMiniMaxH3Prompt": "MiniMax-H3 Prompt (WZQ)",
     "WZQMiniMaxH3MediaInput": "MiniMax-H3 Media Input (WZQ)",
     "WZQMiniMaxH3MediaOutput": "MiniMax-H3 Media Output (WZQ)",

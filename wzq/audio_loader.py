@@ -16,6 +16,8 @@ from aiohttp import web
 import folder_paths
 from server import PromptServer
 
+from . import categories
+
 
 AUDIO_EXTENSIONS = {
     ".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".wma", ".opus",
@@ -242,7 +244,9 @@ class WZQAudioLoader:
     RETURN_TYPES = ("AUDIO",)
     RETURN_NAMES = ("音频",)
     FUNCTION = "load"
-    CATEGORY = "WZQ/音频"
+    CATEGORY = categories.LOADERS
+    DESCRIPTION = "加载音频并显示波形预览，可在节点内非破坏性地裁剪起止时间与调整音量。"
+    OUTPUT_TOOLTIPS = ("处理后的音频。",)
 
     def load(self, audio: str, start_time: float, duration: float, volume: float):
         path = _audio_path(audio)

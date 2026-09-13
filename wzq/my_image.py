@@ -3,6 +3,8 @@ import numpy as np
 from PIL import Image
 import torch
 
+from . import categories
+
 def pil2tensor(image: Image) -> torch.Tensor:
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
@@ -26,7 +28,9 @@ class ImageResizer:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("resized_image",)
     FUNCTION = 'resize_image'
-    CATEGORY = 'test_nodes📀/wzq'
+    CATEGORY = categories.IMAGE
+    DESCRIPTION = "把 image_a 缩放到 image_b 的尺寸，使用 Lanczos 重采样，逐张对应。"
+    OUTPUT_TOOLTIPS = ("缩放后的图像。",)
 
     def resize_image(self, image_a, image_b):
         ret_images = []
@@ -65,7 +69,9 @@ class ImageTileBatch:
     RETURN_NAMES = ("IMAGES",)
     FUNCTION = "tile_image"
 
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.IMAGE
+    DESCRIPTION = "按网格把单张图像切成 num_tiles 块，输出图像列表。"
+    OUTPUT_TOOLTIPS = ("切分后的图像批次。",)
 
     def tile_image(self, image, num_tiles=6):
         image = tensor2pil(image.squeeze(0))

@@ -5,6 +5,8 @@ import torch
 import comfy.utils
 from nodes import MAX_RESOLUTION
 
+from . import categories
+
 
 class WZQSmartImageSize:
     """Create a sized blank image or resize an image to a target pixel count."""
@@ -32,8 +34,10 @@ class WZQSmartImageSize:
     RETURN_TYPES = ("IMAGE", "INT", "INT", "INT")
     RETURN_NAMES = ("image", "width", "height", "batch_size")
     FUNCTION = "execute"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.IMAGE
     OUTPUT_NODE = True
+    DESCRIPTION = "按画幅比例与目标百万像素创建纯色空白图，或把输入图缩放到目标像素。"
+    OUTPUT_TOOLTIPS = ("生成的空白图或缩放后的图像。", "输出宽度。", "输出高度。", "输出批次数量。")
 
     @staticmethod
     def _ratio(aspect_ratio):

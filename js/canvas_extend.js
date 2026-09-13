@@ -1,6 +1,9 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
+// 类名是 WZQCanvasExtend，但 __init__.py 里的注册键是 myWZQCanvasExtend（历史遗留，
+// 已保存的工作流依赖它，不能改）。nodeData.name 取的是注册键，这里两个都兼容，
+// 以免将来注册键被修正时前端失效。
 const NODE_TYPES = new Set(["WZQCanvasExtend", "myWZQCanvasExtend"]);
 const HANDLES = ["tl", "t", "tr", "l", "r", "bl", "b", "br"];
 const EDITOR_SIZE = [1160, 740];

@@ -1,109 +1,81 @@
-# Lorainfo Module Refactoring Summary
+# lorainfo 前端模块架构说明
 
-## Problem
-The browser was encountering syntax errors when trying to load JavaScript files from the `lorainfo` directory:
-```
-SyntaxError: Unexpected token ';'
-TypeError: Failed to fetch dynamically imported module
-```
+本文档描述 `js/lorainfo/` 的加载架构，以及它与 `js/lorainfo_loader.js` 的关系。
 
-## Root Cause
-The issue was caused by circular dependencies and improper module loading order. The files in the `lorainfo` directory were being loaded individually by ComfyUI's extension loader, but they had interdependencies that required a specific loading sequence.
+## 背景：ComfyUI 如何加载 WEB_DIRECTORY 下的 JS
 
-## Solution
-Refactored the module structure to use a centralized loader pattern:
+`server.py` 的 `/extensions` 路由会**递归**收集扩展目录下的所有 `*.js`：
 
-### 1. Renamed Directory
-- **Old:** `js/lorainfo/`
-- **New:** `js/lorainfo_modules/`
-
-### 2. Created Centralized Loader
-Created `js/lorainfo_loader.js` that:
-- Dynamically imports all modules in the correct order
-- Handles dependencies between modules
-- Exports a unified `window.lorainfoModules` object
-- Dispatches a custom event when all modules are loaded
-
-### 3. Updated Module Imports
-All modules in `lorainfo_modules/` now use relative imports:
-```javascript
-// Example in lorainfo.js
-import { RgthreeDialog } from "./dialog.js";
-import { createElement as $el, ... } from "./utils_dom.js";
+```python
+files = glob.glob(os.path.join(glob.escape(dir), '**/*.js'), recursive=True)
 ```
 
-### 4. Updated Consumer Code
-Modified `js/myLoraLoader.js` to:
-- Wait for the `lorainfo-modules-ready` event
-- Access modules via `window.lorainfoModules`
-- Handle the case where modules aren't loaded yet
+前端 `loadExtensions()` 再对其中每一个执行 `import(fileURL(path))`。
+也就是说 **`js/` 下每一个 `.js` 文件（含所有子目录）都会被当成一个独立的扩展模块加载**，
+顺序不保证，也无法通过目录结构规避。
 
-### 5. Fixed CSS Path
-Updated the CSS injection path in `lorainfo.js`:
-```javascript
-// Old
-injectCss("/extensions/wzq_test_node/js/lorainfo/css/dialog_model_info.css");
+## 问题
 
-// New
-injectCss("/extensions/wzq_test_node/js/lorainfo_modules/css/dialog_model_info.css");
-```
+如果让 `js/lorainfo/` 里的 8 个辅助文件各自作为顶层扩展被加载：
 
-## File Structure
+1. `/extensions` 列表里混入大量无意义的顶层模块；
+2. 模块求值顺序不可控，只靠 ESM 依赖图偶然保证正确；
+3. 目录里一旦存在断链或命名异常的文件（例如带空格的文件名），会直接产生加载报错。
+
+## 方案：单点 loader
+
+- `js/lorainfo_loader.js` 是 `js/` 根目录下唯一与本模块相关的扩展入口；
+- 它用 ESM 静态 `import` 引入 `lorainfo.js`，依赖顺序交给依赖图，不手动编排；
+- 加载完成后暴露稳定的 `window.lorainfoModules`，并派发 `lorainfo-modules-ready` 事件；
+- 消费方通过导出的 `getLorainfoModules()` 获取类，不要直接 import `lorainfo/` 内部文件。
+
+`js/lorainfo/` **保持原目录名不变**。目录内所有 import 都是相对路径（`./xxx.js`），
+改成其他目录名不会带来任何收益，反而会与既有的 `injectCss` 绝对路径、文档和历史配置产生不一致。
+
+## 目录结构
+
 ```
 js/
-├── lorainfo_loader.js          # NEW: Centralized module loader
-├── myLoraLoader.js             # UPDATED: Uses new module access pattern
-├── lorainfo_modules/           # RENAMED from lorainfo/
-│   ├── dialog.js
-│   ├── lorainfo.js
-│   ├── menu.js
-│   ├── model_info_service.js
-│   ├── rgthree_api.js
-│   ├── shared_utils.js
-│   ├── svgs.js
-│   ├── utils_dom.js
-│   └── css/
-│       └── dialog_model_info.css
-└── common/
-    └── ...
+├── lorainfo_loader.js          # 唯一入口：暴露 window.lorainfoModules + ready 事件
+├── myLoraLoader.js             # 消费方
+├── myMultiLoraLoader.js        # 消费方
+├── Local_Lora_Only_Gallery.js  # 消费方
+└── lorainfo/
+    ├── lorainfo.js             # RgthreeLoraInfoDialog / RgthreeCheckpointInfoDialog
+    ├── dialog.js               # RgthreeDialog 基类
+    ├── menu.js                 # 菜单组件
+    ├── model_info_service.js   # 模型信息服务
+    ├── rgthree_api.js          # 本地化的模型信息 API
+    ├── shared_utils.js         # 通用工具（injectCss 等）
+    ├── svgs.js                 # SVG 图标
+    ├── utils_dom.js            # DOM 工具
+    └── css/
+        └── dialog_model_info.css
 ```
 
-## Benefits
-1. **No Circular Dependencies:** Modules are loaded in a controlled sequence
-2. **Better Error Handling:** Centralized error handling in the loader
-3. **Cleaner API:** Single access point via `window.lorainfoModules`
-4. **Event-Driven:** Consumers can wait for modules to be ready
-5. **Maintainable:** Easier to add or remove modules
+## 消费方用法
 
-## Usage Example
 ```javascript
-// In myLoraLoader.js
+import { getLorainfoModules } from "./lorainfo_loader.js";
+
 async function showLoraInfo(loraName) {
-    // Wait for modules to load
-    if (!window.lorainfoModules || !window.lorainfoModules.lorainfo) {
-        await new Promise((resolve) => {
-            if (window.lorainfoModules && window.lorainfoModules.lorainfo) {
-                resolve();
-            } else {
-                window.addEventListener('lorainfo-modules-ready', resolve, { once: true });
-            }
-        });
-    }
-    
-    // Access the module
-    const RgthreeLoraInfoDialog = window.lorainfoModules.lorainfo.RgthreeLoraInfoDialog;
-    const dialog = new RgthreeLoraInfoDialog(loraName).show();
+    const { RgthreeLoraInfoDialog } = await getLorainfoModules();
+    new RgthreeLoraInfoDialog(loraName).show();
 }
 ```
 
-## Testing
-After these changes:
-1. Refresh ComfyUI to reload all extensions
-2. The browser console should no longer show syntax errors
-3. The LoRA info dialog should work correctly when right-clicking on a LoRA widget
-4. All modules should be accessible via `window.lorainfoModules`
+`getLorainfoModules()` 在 loader 未执行完时会等待 `lorainfo-modules-ready` 事件，
+因此消费方的模块求值顺序不再重要。
 
-## Notes
-- The `__init__.py` file didn't need changes because `WEB_DIRECTORY = "./js"` automatically loads all JS files
-- The old `bak/` directory contains backup files that can be removed if desired
-- The `lorainfo_loader.js` file is automatically loaded by ComfyUI since it's in the `js/` directory
+## 验证
+
+- 所有相对 import 均指向真实文件（`js/lorainfo/` 内部已逐一校验）；
+- `injectCss` 自带 `link[href^=...]` 去重检查，样式只注入一次；
+- 三个消费方均通过 `getLorainfoModules()` 取类，不再有 `/extensions/wzq_test_node/lorainfo/...` 硬编码静态 import。
+
+## 历史说明
+
+此前本文件曾描述过一套 `lorainfo_modules/` + `lorainfo_loader.js` 的重命名方案，
+但该方案实际并未落地在仓库中（目录始终名为 `lorainfo/`），且把问题归因于"循环依赖"是不准确的：
+当时的 import 图是完整的，真实缺陷是目录内存在一个带空格的备份文件 `lorainfo - 副本.js`，
+会被 `/extensions` 当成一个模块加载。该文件已删除，本文件已按实际架构重写。

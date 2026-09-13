@@ -4,6 +4,8 @@ from PIL import Image, ImageOps
 import torch
 import scipy
 
+from . import categories
+
 def pil2tensor(image: Image) -> torch.Tensor:
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
@@ -49,7 +51,9 @@ class MaskApplierAndCombiner:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("combined_image",)
     FUNCTION = 'apply_masks_and_combine'
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.IMAGE
+    DESCRIPTION = "把多张图像按各自遮罩叠加合成到第一张图上，可对遮罩做羽化过渡。"
+    OUTPUT_TOOLTIPS = ("合成后的图像。",)
 
     def apply_masks_and_combine(self, images, masks, feather_amount):
         if len(images) != len(masks):
@@ -122,12 +126,14 @@ class Mask_Fill_Region:
                     }
                 }
 
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.IMAGE
 
     RETURN_TYPES = ("MASK",)
     RETURN_NAMES = ("MASKS",)
 
     FUNCTION = "fill_region"
+    DESCRIPTION = "填充遮罩内部的孔洞：把遮罩中封闭区域补实，用于修整不完整的分区遮罩。"
+    OUTPUT_TOOLTIPS = ("填充孔洞后的遮罩。",)
 
     def fill_region(self, masks):
         if masks.ndim > 3:

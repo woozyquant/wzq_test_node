@@ -1,4 +1,5 @@
 from nodes import MAX_RESOLUTION
+from . import categories
 import json
 import os
 import torch
@@ -34,7 +35,7 @@ def parse_string_to_dict(s):
 class mySplit:
     def __init__(self):
         pass
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TEXT
 
     SAMPLER_TYPE = comfy.samplers.KSampler.SAMPLERS
 
@@ -53,6 +54,7 @@ class mySplit:
     RETURN_TYPES = ("STRING","STRING","INT", "FLOAT", "INT", "INT", "INT", SAMPLER_TYPE, "STRING", "STRING")
     # 自定义输出名称
     RETURN_NAMES = ("pos_str","neg_str","steps","cfg","seed", "width", "height","sampler_name","All","Loras")
+    DESCRIPTION = "解析 SD / A1111 生成的参数文本，拆出正向提示词、负向提示词、步数、CFG、种子、宽高、采样器与 LoRA 标签。"
 
 
     def match_sampler(self, sampler_name_str):
@@ -139,7 +141,7 @@ any_ = AnyType1("*")
 class myReroute:
     def __init__(self):
         pass
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TOOLS
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -153,6 +155,7 @@ class myReroute:
     RETURN_TYPES = (any_,)
     FUNCTION = "route"
     #CATEGORY = "__hidden__"
+    DESCRIPTION = "任意类型中继：原样透传输入，用于整理连线。"
 
     def route(self, value):
         return (value,)
@@ -161,7 +164,7 @@ class myReroute:
 class myReroute3:
     def __init__(self):
         pass
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TOOLS
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -177,6 +180,7 @@ class myReroute3:
     RETURN_NAMES = ("value1", "value2", "value3")
     FUNCTION = "route"
     #CATEGORY = "__hidden__"
+    DESCRIPTION = "三路任意类型中继：把 1~3 个输入分别原样透传输出。"
 
     def route(self, value1, value2=None, value3=None):
         return (value1,value2,value3)
@@ -185,7 +189,7 @@ class myReroute3:
 class myReroutexxx:
     def __init__(self):
         pass
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TOOLS
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -199,7 +203,8 @@ class myReroutexxx:
     RETURN_TYPES = ("MODEL","VAE", "CLIP")
     RETURN_NAMES = ("model","vae", "clip")
     FUNCTION = "route"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TOOLS
+    DESCRIPTION = "模型组中继：把 MODEL / VAE / CLIP 三路连线合并成一根线，再拆分输出。"
 
     def route(self, model, vae, clip):
         return (model, vae, clip)
@@ -222,7 +227,9 @@ class myImageSize:
   OUTPUT_NODE = True
   FUNCTION = "image_width_height"
 
-  CATEGORY = "test_nodes📀/wzq"
+  CATEGORY = categories.SIZE
+  DESCRIPTION = "读取输入图像的宽高，输出原图与两个整数尺寸。"
+  OUTPUT_TOOLTIPS = ("原图透传。", "图像宽度（像素）。", "图像高度（像素）。")
 
   def image_width_height(self, image):
     _, raw_H, raw_W, _ = image.shape
@@ -252,7 +259,8 @@ class myEasySeed:
     RETURN_NAMES = ("seed",)
     FUNCTION = "doit"
 
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TEXT
+    DESCRIPTION = "输出一个种子整数，可手动填写或使用节点上的随机按钮。"
 
     def doit(self, seed=0, prompt=None, extra_pnginfo=None, my_unique_id=None):
         return seed,
@@ -272,7 +280,8 @@ class myCurrentTime:
     OUTPUT_NODE = True
     FUNCTION = "get_current_time"
 
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TEXT
+    DESCRIPTION = "输出当前本地时间字符串；输入仅用于接入执行流程，内容不会被使用。"
 
     def get_current_time(self, anything):
         now = datetime.datetime.now()
@@ -326,7 +335,9 @@ class myEmptyLatent:
     RETURN_TYPES = ("LATENT","INT","INT",)
     RETURN_NAMES = ("LATENT","width","height",)
     FUNCTION = "execute"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.SIZE
+    DESCRIPTION = "从预设分辨率列表创建空白 LATENT，可覆盖宽高或交换宽高。"
+    OUTPUT_TOOLTIPS = ("空白潜空间。", "实际使用的宽度。", "实际使用的高度。")
 
     def execute(self, resolution, batch_size, width_override=0, height_override=0, swap_width_height=False):
         width, height = resolution.split("x")
@@ -360,7 +371,9 @@ class myEmptyLatentQwen:
     RETURN_TYPES = ("LATENT","INT","INT",)
     RETURN_NAMES = ("LATENT","width","height",)
     FUNCTION = "execute"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.SIZE
+    DESCRIPTION = "Qwen 预设比例空白 LATENT（1:1 / 16:9 / 4:3 / 9:16 / 3:4），可覆盖宽高或交换宽高。"
+    OUTPUT_TOOLTIPS = ("空白潜空间。", "实际使用的宽度。", "实际使用的高度。")
 
     def execute(self, resolution, batch_size, width_override=0, height_override=0, swap_width_height=False):
         width = 1328
@@ -426,7 +439,9 @@ class mySize:
     RETURN_NAMES = ("width","height",)
     OUTPUT_NODE = True
     FUNCTION = "execute"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.SIZE
+    DESCRIPTION = "只计算并输出宽高整数：按预设比例、覆盖值、放大系数和倍数对齐得出，不生成图像。"
+    OUTPUT_TOOLTIPS = ("计算后的宽度。", "计算后的高度。")
 
     def execute(self, resolution, width_override=0, height_override=0, swap_width_height=False, upscale_factor=1.0, round_to_multiple="8"):
         # 从形如 "1:1 square 1024x1024" 的字符串里解析出基准宽高
@@ -479,7 +494,9 @@ class myCheckStringEmpty:
     RETURN_TYPES = ("BOOLEAN",)
     RETURN_NAMES = ("is_empty",)
     FUNCTION = "check_string_empty"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TEXT
+    DESCRIPTION = "判断输入文本是否为空，可按需先去除首尾空白，输出布尔值。"
+    OUTPUT_TOOLTIPS = ("文本为空时为 True。",)
 
     def check_string_empty(self, text, strip_whitespace):
         # 即使是 forceInput，如果没有连接，ComfyUI 可能会传入 None 或者原始对象
@@ -516,7 +533,9 @@ class myBatchCount:
     RETURN_TYPES = ("INT",)
     RETURN_NAMES = ("batch_count",)
     FUNCTION = "execute1"
-    CATEGORY = "test_nodes📀/wzq"
+    CATEGORY = categories.TEXT
+    DESCRIPTION = "读取任意批次数据的数量：支持 IMAGE/MASK 张量、LATENT 字典、列表与普通字典。"
+    OUTPUT_TOOLTIPS = ("批次中的样本数量，无法识别时为 1。",)
 
     def execute1(self, batch):
         count = 0

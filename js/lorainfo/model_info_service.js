@@ -1,5 +1,9 @@
 import { rgthreeApi } from "./rgthree_api.js";
-import { api } from "../../../scripts/api.js";
+// 用根路径绝对导入，避免依赖本文件在 /extensions/... 下的层级。
+// 实测（真实服务器）：/scripts/api.js = 200；而 WEB_DIRECTORY 被挂载为
+// /extensions/wzq_test_node/（URL 中不含 js/），因此本文件的任何相对 ../ 路径
+// 都落到 /extensions/... 下并 404，会连带整条 lorainfo 模块链一起失败。
+import { api } from "/scripts/api.js";
 
 class BaseModelInfoService extends EventTarget {
     constructor() {

@@ -2,6 +2,57 @@
 
 ComfyUI 自定义节点集合。
 
+## 菜单结构
+
+右键菜单里全部节点都在同一个 `WZQ` 顶层菜单下，按功能分为二级子菜单：
+
+```
+WZQ
+├── 加载器            图像加载器、音频加载器
+├── LoRA              LoRA Loader / Multi LoRA Loader / Local LoRA Gallery
+├── 图像              智能尺寸、交互式裁剪画布、图像缩放、图像切块、遮罩合成、遮罩填孔
+├── 尺寸与潜空间       Image Size、Size、Empty Latent、Empty Latent (Qwen)
+├── 文本与工具         Split SD Generation Data、Check String Empty、Batch Count、Easy Seed、Current Time
+├── 工具              Reroute（3 个变体）
+└── MiniMax H3         Prompt、Media Input、Media Output
+```
+
+分类只在 `wzq/categories.py` 里定义一处，各节点文件统一引用，避免再次出现同库被拆到多个顶层菜单的情况。
+
+**注意：**节点在 `NODE_CLASS_MAPPINGS` 中的注册键（例如 `mySizexxx`、`wzq_image_out`）决定工作流里保存的节点类型，
+已有工作流依赖这些键，**不要修改**。菜单位置由 `CATEGORY` 决定，节点标题由 `NODE_DISPLAY_NAME_MAPPINGS` 决定，两者都可以安全调整。
+
+## 完整节点清单
+
+| 菜单 | 节点显示名 | 注册键 | 作用 |
+| --- | --- | --- | --- |
+| 加载器 | WZQ 图像加载器 | `WZQImageLoader` | 浏览/上传/排序多张图像，输出图像列表、单图与遮罩 |
+| 加载器 | WZQ 音频加载器 | `WZQAudioLoader` | 音频波形预览与非破坏性裁剪、音量调整 |
+| LoRA | LoRA Loader (Model Only) | `myLoraLoaderModelOnlyxxx` | 给 MODEL 加载单个 LoRA，不改 CLIP |
+| LoRA | Multi LoRA Loader (Model Only) | `myMultiLoraLoaderModelOnlyxxx` | 面板中动态增删任意数量 LoRA |
+| LoRA | 🖼️Local LoRA Gallery | `myLocalLoraOnlyGalleryxxx` | 本地 LoRA 图库，输出所选 LoRA 名称 |
+| 图像 | Smart Image Size | `wzq_image_out` | 创建空白图 / 缩放输入图到目标百万像素 |
+| 图像 | 🖼️Interactive Canvas Crop / Extend | `myWZQCanvasExtend` | 交互式裁剪或扩展画布，输出扩展/裁剪遮罩 |
+| 图像 | Image Resizer | `myImageResizer` | 把 A 缩放到 B 的尺寸 |
+| 图像 | Image Tile Batch | `myImageTiled` | 按网格切分图像 |
+| 图像 | 🎭Mask Applier and Combiner | `MaskApplierAndCombiner` | 多图按遮罩叠加合成，支持羽化 |
+| 图像 | Mask Fill Holes | `myMaskFillHoles` | 填充遮罩内部孔洞 |
+| 尺寸与潜空间 | Image Size | `myImageSizexxx` | 读取图像宽高，输出原图 + 两个整数 |
+| 尺寸与潜空间 | Size (Width / Height) | `mySizexxx` | 只计算宽高：比例、覆盖、放大系数、倍数对齐 |
+| 尺寸与潜空间 | Empty Latent (Resolution) | `myEmptyLatentxxx` | 按预设分辨率创建空白 LATENT |
+| 尺寸与潜空间 | Empty Latent (Qwen Ratio) | `myEmptyLatentQwenxxx` | 按 Qwen 预设比例创建空白 LATENT |
+| 文本与工具 | Split SD Generation Data | `mySplit` | 解析 SD / A1111 参数文本 |
+| 文本与工具 | Check String Empty | `myCheckStringEmptyxxx` | 判断文本是否为空 |
+| 文本与工具 | Batch Count | `myBatchCount` | 读取任意批次数据的数量 |
+| 文本与工具 | Easy Seed | `myEasySeedxxx` | 输出种子整数 |
+| 文本与工具 | Current Time | `myCurrentTimexxx` | 输出当前时间字符串 |
+| 工具 | Reroute (Any) | `myReroute` | 任意类型单路中继 |
+| 工具 | Reroute (Any ×3) | `myReroute3` | 任意类型三路中继 |
+| 工具 | Reroute (Model / VAE / CLIP) | `myReroutexxx` | 模型组三路中继 |
+| MiniMax H3 | MiniMax-H3 Prompt (WZQ) | `WZQMiniMaxH3Prompt` | 富文本提示词编辑，见下文 |
+| MiniMax H3 | MiniMax-H3 Media Input (WZQ) | `WZQMiniMaxH3MediaInput` | 打包图像/视频/音频素材 |
+| MiniMax H3 | MiniMax-H3 Media Output (WZQ) | `WZQMiniMaxH3MediaOutput` | 拆分素材包为多路输出 |
+
 ## wzq_image_out
 
 用一个节点代替“分辨率选择器 / 空白图 / 缩放 / 图像尺寸获取”的常见组合。可在 `mode` 中选择：

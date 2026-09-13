@@ -17,6 +17,8 @@ import folder_paths
 import node_helpers
 from server import PromptServer
 
+from . import categories
+
 
 IMAGE_EXTENSIONS = {
     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".svg", ".avif"
@@ -280,7 +282,9 @@ class WZQImageLoader:
     RETURN_NAMES = ("图像", "单图", "遮罩")
     OUTPUT_IS_LIST = (True, False, False)
     FUNCTION = "load_images"
-    CATEGORY = "WZQ/图像"
+    CATEGORY = categories.LOADERS
+    DESCRIPTION = "在节点面板中浏览、上传并排列多张图像，输出图像列表、单图与遮罩。"
+    OUTPUT_TOOLTIPS = ("所选图像列表。", "当前单张图像。", "图像遮罩。")
 
     def load_images(self, image_list, index, batch_mode, mask_data="", upload_mode="append"):
         del upload_mode
