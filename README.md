@@ -14,6 +14,7 @@ WZQ
 ├── 尺寸与潜空间       Image Size、Size、Empty Latent、Empty Latent (Qwen)
 ├── 文本与工具         Split SD Generation Data、Check String Empty、Batch Count、Easy Seed、Current Time
 ├── 工具              Reroute（3 个变体）
+├── 视频              Video Combine V2
 └── MiniMax H3         Prompt、Media Input、Media Output
 ```
 
@@ -49,6 +50,7 @@ WZQ
 | 工具 | Reroute (Any) | `myReroute` | 任意类型单路中继 |
 | 工具 | Reroute (Any ×3) | `myReroute3` | 任意类型三路中继 |
 | 工具 | Reroute (Model / VAE / CLIP) | `myReroutexxx` | 模型组三路中继 |
+| 视频 | Video Combine V2 (WZQ) | `WZQVideoCombineV2` | 将图像帧合成 GIF/WebP/视频，可合并音频并保留元数据 |
 | MiniMax H3 | MiniMax-H3 Prompt (WZQ) | `WZQMiniMaxH3Prompt` | 富文本提示词编辑，见下文 |
 | MiniMax H3 | MiniMax-H3 Media Input (WZQ) | `WZQMiniMaxH3MediaInput` | 打包图像/视频/音频素材 |
 | MiniMax H3 | MiniMax-H3 Media Output (WZQ) | `WZQMiniMaxH3MediaOutput` | 拆分素材包为多路输出 |
@@ -74,6 +76,17 @@ WZQ
 - `extend_data`：`left/right/top/bottom` 四边参数的 JSON 字符串。
 
 修改或首次安装后需要重启 ComfyUI，并刷新浏览器前端资源。
+
+## Video Combine V2 (WZQ)
+
+从 FeiHou Toolbox 移植的 VHS 兼容视频合成节点，保留动态编码选项、节点内预览、
+GIF/WebP、FFmpeg 视频、音频合并和 ComfyUI 工作流元数据。为避免与原插件冲突，
+注册键为 `WZQVideoCombineV2`，预览接口使用独立的 `/wzq-vhs/*` 路由。
+
+`frame_rate` 默认为 `24 FPS`，支持 `0.01–1000 FPS` 和三位小数步进，可直接使用 `23.976`、`29.97`、
+`59.94` 等小数帧率。后端会拒绝零值、负值、NaN 和无穷值，FFmpeg 编码使用
+rawvideo 输入的明确时间基，并用同一 FPS 计算音频补齐与裁切时长。GIF/WebP
+会在各帧之间分摊时长取整误差，避免 `23.976 FPS` 因每帧固定取整而变成 `25 FPS`。
 
 ## MiniMax-H3 Prompt (WZQ)
 

@@ -26,6 +26,7 @@ from .wzq.canvas_extend import WZQCanvasExtend
 from .wzq.image_loader import WZQImageLoader
 from .wzq.audio_loader import WZQAudioLoader
 from .wzq.smart_image_size import WZQSmartImageSize
+from .wzq.video_combine_v2 import VideoCombineV2
 from .wzq.minimax_h3_prompt import (
     WZQMiniMaxH3MediaInput,
     WZQMiniMaxH3MediaOutput,
@@ -68,6 +69,7 @@ NODE_CLASS_MAPPINGS = {
     "WZQMiniMaxH3Prompt": WZQMiniMaxH3Prompt,
     "WZQMiniMaxH3MediaInput": WZQMiniMaxH3MediaInput,
     "WZQMiniMaxH3MediaOutput": WZQMiniMaxH3MediaOutput,
+    "WZQVideoCombineV2": VideoCombineV2,
 }
 
 
@@ -117,6 +119,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WZQMiniMaxH3Prompt": "MiniMax-H3 Prompt (WZQ)",
     "WZQMiniMaxH3MediaInput": "MiniMax-H3 Media Input (WZQ)",
     "WZQMiniMaxH3MediaOutput": "MiniMax-H3 Media Output (WZQ)",
+    "WZQVideoCombineV2": "Video Combine V2 (WZQ)",
 }
 
 WEB_DIRECTORY = "./js"

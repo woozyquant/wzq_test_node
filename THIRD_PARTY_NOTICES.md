@@ -15,3 +15,14 @@ notice:
 
 The adapted files remain available under GPL-3.0-or-later. See
 <https://www.gnu.org/licenses/gpl-3.0.html> for the license text.
+
+## Video Combine V2
+
+`wzq/video_combine_v2.py`, `js/video_combine_v2.js`,
+`wzq/video_formats/`, and `wzq/vhs_compat/` are adapted from
+`ComfyUI-FeiHou-Toolbox` and its vendored
+`ComfyUI-VideoHelperSuite` implementation.
+
+Both upstream projects distribute this code under **GPL-3.0**. The vendored
+VideoHelperSuite license and attribution are preserved in
+`wzq/vhs_compat/LICENSE` and `wzq/vhs_compat/NOTICE.md`.

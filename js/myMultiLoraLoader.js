@@ -34,8 +34,59 @@ const NUMBER_WIDTH = 56;
 const ROW_HEIGHT = 26;
 const NODE_MIN_WIDTH = 460;
 const LORA_MENU_CLASS = "wzq-multi-lora-menu";
+const WIDGET_MARKER = "__wzqMultiLoraWidget";
+const ROW_MARKER = "__wzqMultiLoraRow";
+const NODE_SETUP_MARKER = "__wzqMultiLoraSetup";
+const NODE_TYPE_SETUP_MARKER = "__wzqMultiLoraTypeSetup";
+const STATE_VERSION = 2;
 
 let loraNamesPromise = null;
+let lastCanvasContextMenuEvent = null;
+
+function isLoraRowWidget(widget) {
+    return Boolean(
+        widget && (
+            widget[ROW_MARKER] === true ||
+            (
+                typeof widget.name === "string" &&
+                widget.name.startsWith(ROW_PREFIX) &&
+                widget.value &&
+                typeof widget.value === "object" &&
+                "lora" in widget.value &&
+                "strength" in widget.value
+            )
+        )
+    );
+}
+
+function isOwnedMultiLoraWidget(widget) {
+    return Boolean(
+        widget && (
+            widget[WIDGET_MARKER] === true ||
+            widget.name === "multi_lora_spacer" ||
+            widget.name === "multi_lora_header" ||
+            widget.name === "multi_lora_add" ||
+            isLoraRowWidget(widget)
+        )
+    );
+}
+
+function installCanvasContextMenuTracker() {
+    const canvas = app.canvas?.canvas;
+    if (!canvas || canvas.__wzqMultiLoraContextMenuTracker) {
+        return;
+    }
+
+    canvas.__wzqMultiLoraContextMenuTracker = true;
+    const rememberEvent = (event) => {
+        if (event.type === "contextmenu" || event.button === 2) {
+            lastCanvasContextMenuEvent = event;
+            canvas.__wzqMultiLoraLastContextMenuEvent = event;
+        }
+    };
+    canvas.addEventListener("pointerdown", rememberEvent, true);
+    canvas.addEventListener("contextmenu", rememberEvent, true);
+}
 
 async function getLoraNames(force = false) {
     if (!loraNamesPromise || force) {
@@ -443,7 +494,11 @@ class CanvasWidget {
         this.name = name;
         this.type = "custom";
         this.value = null;
+        // ComfyUI frontend 1.53+ reads the top-level `serialize` flag;
+        // older frontends read options.serialize. Keep both in sync.
+        this.serialize = serialize;
         this.options = { serialize };
+        this[WIDGET_MARKER] = true;
         this.last_y = 0;
         this.hitAreas = {};
         this.mouseDowned = false;
@@ -453,6 +508,10 @@ class CanvasWidget {
 
     computeSize(width) {
         return [width, ROW_HEIGHT];
+    }
+
+    serializeValue() {
+        return this.options.serialize ? this.value : null;
     }
 
     isInside(pos, bounds) {
@@ -570,6 +629,7 @@ class HeaderWidget extends CanvasWidget {
 class LoraRowWidget extends CanvasWidget {
     constructor(name, value = DEFAULT_VALUE) {
         super(name, true);
+        this[ROW_MARKER] = true;
         this._value = { ...DEFAULT_VALUE };
         this.haveDraggedStrength = false;
         this.value = value;
@@ -798,16 +858,27 @@ function addStaticWidgets(node) {
 }
 
 function setupNode(node) {
+    if (node[NODE_SETUP_MARKER]) {
+        installCanvasContextMenuTracker();
+        return;
+    }
+    node[NODE_SETUP_MARKER] = true;
     node.serialize_widgets = true;
     node.multiLoraCounter = 0;
 
     node.getMultiLoraWidgets = function () {
         return (this.widgets || []).filter(
-            (widget) => widget instanceof LoraRowWidget && widget.name.startsWith(ROW_PREFIX),
+            (widget) => isLoraRowWidget(widget),
         );
     };
 
     node.syncMultiLoraState = function () {
+        if (!this.__wzqRestoringMultiLoras) {
+            this.properties ||= {};
+            this.properties.multi_loras_data = this.getMultiLoraWidgets()
+                .map((widget) => ({ ...widget.value }));
+            this.properties.multi_loras_version = STATE_VERSION;
+        }
         this.setDirtyCanvas?.(true, true);
         this.graph?.setDirtyCanvas?.(true, true);
     };
@@ -830,6 +901,7 @@ function setupNode(node) {
         if (index >= 0) {
             this.widgets.splice(index, 1);
             widget.onRemove?.();
+            this.syncMultiLoraState();
             resizeNode(this);
         }
     };
@@ -844,26 +916,68 @@ function setupNode(node) {
     };
 
     node.restoreMultiLoraWidgets = function (values) {
+        const normalizedValues = (values || []).filter(
+            (value) => value && typeof value === "object" && "lora" in value,
+        );
         for (const widget of this.widgets || []) {
-            widget.onRemove?.();
-        }
-        this.widgets = [];
-        this.multiLoraCounter = 0;
-        addStaticWidgets(this);
-        for (const value of values || []) {
-            if (value && typeof value === "object" && "lora" in value) {
-                this.addMultiLoraWidget(value);
+            if (isOwnedMultiLoraWidget(widget) && !isLoraRowWidget(widget)) {
+                // LGraphNode.configure assigns widgets_values positionally. A row
+                // object can temporarily land on a spacer/button; never let that
+                // transient value get serialized as another LoRA row.
+                widget.value = null;
             }
         }
+        const currentRows = this.getMultiLoraWidgets();
+        const alreadyRestored = currentRows.length === normalizedValues.length &&
+            currentRows.every((widget, index) => {
+                const current = widget.value;
+                const saved = normalizedValues[index];
+                return current.on === (saved.on !== false) &&
+                    current.lora === (saved.lora && saved.lora !== "None" ? saved.lora : null) &&
+                    current.strength === (Number.isFinite(Number(saved.strength))
+                        ? clampStrength(Number(saved.strength))
+                        : 1.0);
+            });
+        if (alreadyRestored) {
+            this.syncMultiLoraState();
+            return;
+        }
+
+        this.__wzqRestoringMultiLoras = true;
+        try {
+            const preservedWidgets = [];
+            for (const widget of this.widgets || []) {
+                if (isOwnedMultiLoraWidget(widget)) {
+                    widget.onRemove?.();
+                } else {
+                    preservedWidgets.push(widget);
+                }
+            }
+            this.widgets = preservedWidgets;
+            this.multiLoraCounter = 0;
+            addStaticWidgets(this);
+            for (const value of normalizedValues) {
+                this.addMultiLoraWidget(value);
+            }
+        } finally {
+            this.__wzqRestoringMultiLoras = false;
+        }
+        this.syncMultiLoraState();
         resizeNode(this);
     };
 
     addStaticWidgets(node);
+    installCanvasContextMenuTracker();
     getLoraNames();
     resizeNode(node);
 }
 
 function setupNodeType(nodeType) {
+    if (nodeType.prototype[NODE_TYPE_SETUP_MARKER]) {
+        return;
+    }
+    nodeType.prototype[NODE_TYPE_SETUP_MARKER] = true;
+
     const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
         const result = originalOnNodeCreated?.apply(this, arguments);
@@ -873,23 +987,40 @@ function setupNodeType(nodeType) {
 
     const originalOnConfigure = nodeType.prototype.onConfigure;
     nodeType.prototype.onConfigure = function (info) {
-        let savedRows = (info?.widgets_values || []).filter(
-            (value) => value && typeof value === "object" && "lora" in value,
-        );
+        setupNode(this);
+        const restoreRevision = (this.__wzqMultiLoraRestoreRevision || 0) + 1;
+        this.__wzqMultiLoraRestoreRevision = restoreRevision;
+        const propertyRows = info?.properties?.multi_loras_data;
+        const hasCurrentPropertyState =
+            info?.properties?.multi_loras_version === STATE_VERSION &&
+            Array.isArray(propertyRows);
+        let savedRows = hasCurrentPropertyState
+            ? propertyRows
+            : (Array.isArray(info?.widgets_values) ? info.widgets_values : []).filter(
+                (value) => value && typeof value === "object" && "lora" in value,
+            );
+        let hasSavedRows = savedRows.length > 0;
         // Migrate workflows saved by the earlier hidden-JSON implementation.
-        if (!savedRows.length) {
+        if (!hasSavedRows && !hasCurrentPropertyState) {
             const legacyValues = [
-                ...(info?.widgets_values || []).filter((value) => typeof value === "string"),
+                ...(Array.isArray(info?.widgets_values) ? info.widgets_values : [])
+                    .filter((value) => typeof value === "string"),
                 info?.properties?.multi_loras_data,
             ];
             for (const legacyValue of legacyValues) {
                 if (!legacyValue) {
                     continue;
                 }
+                if (Array.isArray(legacyValue)) {
+                    savedRows = legacyValue;
+                    hasSavedRows = true;
+                    break;
+                }
                 try {
                     const parsed = JSON.parse(legacyValue);
                     if (Array.isArray(parsed)) {
                         savedRows = parsed;
+                        hasSavedRows = true;
                         break;
                     }
                 } catch {
@@ -898,7 +1029,34 @@ function setupNodeType(nodeType) {
             }
         }
         const result = originalOnConfigure?.apply(this, arguments);
-        requestAnimationFrame(() => this.restoreMultiLoraWidgets?.(savedRows));
+        if (hasSavedRows || hasCurrentPropertyState || Array.isArray(info?.widgets_values)) {
+            // Some frontend versions finish assigning widget values after onConfigure.
+            // Defer one frame, but invalidate older callbacks so repeated view mounts
+            // cannot replay stale state or append another set of rows.
+            requestAnimationFrame(() => {
+                if (this.__wzqMultiLoraRestoreRevision === restoreRevision) {
+                    this.restoreMultiLoraWidgets?.(savedRows);
+                }
+            });
+        }
+        return result;
+    };
+
+    const originalOnSerialize = nodeType.prototype.onSerialize;
+    nodeType.prototype.onSerialize = function (info) {
+        const result = originalOnSerialize?.apply(this, arguments);
+        const rows = (this.getMultiLoraWidgets?.() || [])
+            .map((widget) => ({ ...widget.value }));
+
+        // Do not rely on the frontend's positional widget serializer here.
+        // Dynamic rows are the only serializable widgets owned by this node.
+        info.widgets_values = rows;
+        info.widgets_values_named = Object.fromEntries(
+            rows.map((value, index) => [`${ROW_PREFIX}${index + 1}`, value]),
+        );
+        info.properties ||= {};
+        info.properties.multi_loras_data = rows;
+        info.properties.multi_loras_version = STATE_VERSION;
         return result;
     };
 
@@ -919,12 +1077,12 @@ function setupNodeType(nodeType) {
 
     const originalGetSlotMenuOptions = nodeType.prototype.getSlotMenuOptions;
     nodeType.prototype.getSlotMenuOptions = function (slot) {
-        if (slot?.widget instanceof LoraRowWidget) {
+        if (isLoraRowWidget(slot?.widget)) {
             const widget = slot.widget;
             const rows = this.getMultiLoraWidgets();
             const rowIndex = rows.indexOf(widget);
             const widgetIndex = this.widgets.indexOf(widget);
-            return [
+            const menuItems = [
                 {
                     content: "ⓘ Show Info",
                     disabled: !widget.value.lora,
@@ -959,6 +1117,15 @@ function setupNodeType(nodeType) {
                     callback: () => this.removeMultiLoraWidget(widget),
                 },
             ];
+            new LiteGraph.ContextMenu(menuItems, {
+                title: "LORA WIDGET",
+                event: app.canvas?.canvas?.__wzqMultiLoraLastContextMenuEvent ||
+                    lastCanvasContextMenuEvent || undefined,
+                scale: Math.max(1, app.canvas?.ds?.scale || 1),
+            });
+            // Returning the entries is ignored by newer LiteGraph versions for this
+            // synthetic slot. We create the menu ourselves and suppress the default one.
+            return undefined;
         }
         return originalGetSlotMenuOptions?.apply(this, arguments);
     };
