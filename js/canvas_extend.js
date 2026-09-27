@@ -121,7 +121,7 @@ class CanvasExtendEditor {
                     <button class="wzq-ce-btn" data-action="align">应用</button>
                 </div>
                 <div class="wzq-ce-group">
-                    <select class="wzq-ce-select" data-field="fill"><option value="#ffffff">白色填充</option><option value="#000000">黑色填充</option><option value="#ff0000">红色填充</option><option value="#00ff00">绿色填充</option><option value="#0000ff">蓝色填充</option><option value="transparent">透明/黑色</option></select>
+                    <select class="wzq-ce-select" data-field="fill"><option value="#ffffff">白色填充</option><option value="#808080">灰色填充</option><option value="#000000">黑色填充</option><option value="#ff0000">红色填充</option><option value="#00ff00">绿色填充</option><option value="#0000ff">蓝色填充</option><option value="transparent">透明/黑色</option></select>
                 </div>
                 <div class="wzq-ce-group"><label class="wzq-ce-check"><input data-field="snap" type="checkbox" checked>吸附</label><input class="wzq-ce-input wzq-ce-small" data-field="snap-distance" type="number" min="1" max="100" value="15"></div>
                 <div class="wzq-ce-group"><button class="wzq-ce-btn" data-action="shape-lock" title="拖拽时保持当前框比例">等比</button><button class="wzq-ce-btn" data-action="fit" title="适合窗口">适屏</button></div>

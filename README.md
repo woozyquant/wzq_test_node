@@ -12,7 +12,7 @@ WZQ
 ├── LoRA              LoRA Loader / Multi LoRA Loader / Local LoRA Gallery
 ├── 图像              智能尺寸、交互式裁剪画布、图像缩放、图像切块、遮罩合成、遮罩填孔
 ├── 尺寸与潜空间       Image Size、Size、Empty Latent、Empty Latent (Qwen)
-├── 文本与工具         Split SD Generation Data、Check String Empty、Batch Count、Easy Seed、Current Time
+├── 文本与工具         提示词管理器、Split SD Generation Data、Check String Empty、Batch Count、Easy Seed、Current Time
 ├── 工具              Reroute（3 个变体）
 ├── 视频              Video Combine V2
 └── MiniMax H3         Prompt、Media Input、Media Output
@@ -47,6 +47,7 @@ WZQ
 | 文本与工具 | Batch Count | `myBatchCount` | 读取任意批次数据的数量 |
 | 文本与工具 | Easy Seed | `myEasySeedxxx` | 输出种子整数 |
 | 文本与工具 | Current Time | `myCurrentTimexxx` | 输出当前时间字符串 |
+| 文本与工具 | 提示词管理器 | `WZQPromptManager` | 浏览、编辑并保存 `prompts/` 分类提示词，输出当前文本 |
 | 工具 | Reroute (Any) | `myReroute` | 任意类型单路中继 |
 | 工具 | Reroute (Any ×3) | `myReroute3` | 任意类型三路中继 |
 | 工具 | Reroute (Model / VAE / CLIP) | `myReroutexxx` | 模型组三路中继 |
@@ -54,6 +55,17 @@ WZQ
 | MiniMax H3 | MiniMax-H3 Prompt (WZQ) | `WZQMiniMaxH3Prompt` | 富文本提示词编辑，见下文 |
 | MiniMax H3 | MiniMax-H3 Media Input (WZQ) | `WZQMiniMaxH3MediaInput` | 打包图像/视频/音频素材 |
 | MiniMax H3 | MiniMax-H3 Media Output (WZQ) | `WZQMiniMaxH3MediaOutput` | 拆分素材包为多路输出 |
+
+## 提示词管理器
+
+节点左侧读取插件根目录下的 `prompts/` 文件夹：每个子文件夹会显示为分类，
+其中的 `.txt`、`.md` 和 `.prompt` 文件会显示为提示词条目。单击条目会把 UTF-8
+文本载入右侧编辑框；填写名称、选择按钮后的分类，可用“添加到提示词列表”保存为文件。
+选中已有条目并修改名称后，可用“改名”直接重命名文件。同名文件不会静默覆盖；
+保存时前端会先请求确认，改名时则会提示名称冲突。节点输出始终是右侧编辑框当前的文本。
+
+仓库默认提供空的 `prompts/通用/` 分类；也可以直接在 `prompts/` 下创建更多子文件夹，
+再点击节点左上角的刷新按钮载入。
 
 ## wzq_image_out
 

@@ -32,6 +32,7 @@ from .wzq.minimax_h3_prompt import (
     WZQMiniMaxH3MediaOutput,
     WZQMiniMaxH3Prompt,
 )
+from .wzq.prompt_manager import WZQPromptManager
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
 from .wzq import server as _wzq_server  # noqa: F401
@@ -70,6 +71,7 @@ NODE_CLASS_MAPPINGS = {
     "WZQMiniMaxH3MediaInput": WZQMiniMaxH3MediaInput,
     "WZQMiniMaxH3MediaOutput": WZQMiniMaxH3MediaOutput,
     "WZQVideoCombineV2": VideoCombineV2,
+    "WZQPromptManager": WZQPromptManager,
 }
 
 
@@ -120,6 +122,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WZQMiniMaxH3MediaInput": "MiniMax-H3 Media Input (WZQ)",
     "WZQMiniMaxH3MediaOutput": "MiniMax-H3 Media Output (WZQ)",
     "WZQVideoCombineV2": "Video Combine V2 (WZQ)",
+    "WZQPromptManager": "提示词管理器",
 }
 
 WEB_DIRECTORY = "./js"

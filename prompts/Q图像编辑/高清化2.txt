@@ -1,0 +1,1 @@
+Transform the image to realistic photograph. add realistic details to the corrupted image. restore high frequence details from the corrupted image.

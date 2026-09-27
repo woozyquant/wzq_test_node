@@ -24,7 +24,7 @@ class WZQSmartImageSize:
                 "multiple": ("INT", {"default": 32, "min": 1, "max": 256, "step": 1}),
                 "upscale_method": (cls.UPSCALE_METHODS, {"default": "lanczos"}),
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 64, "step": 1}),
-                "color": ("INT", {"default": 16777215, "min": 0, "max": 16777215, "step": 1}),
+                "color": ("STRING", {"default": "255,255,255"}),
             },
             "optional": {
                 "image": ("IMAGE",),
@@ -70,10 +70,22 @@ class WZQSmartImageSize:
 
     @staticmethod
     def _color_tensor(color):
-        color = max(0, min(0xFFFFFF, int(color)))
-        return torch.tensor(
-            [(color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF], dtype=torch.float32
-        ).div_(255.0)
+        if isinstance(color, str):
+            parts = [part.strip() for part in color.split(",")]
+            if len(parts) != 3:
+                raise ValueError("color 必须使用 R,G,B 格式，例如 128,128,128。")
+            try:
+                rgb = [int(part) for part in parts]
+            except ValueError as exc:
+                raise ValueError("color 的 R、G、B 必须是 0 到 255 的整数。") from exc
+            if any(channel < 0 or channel > 255 for channel in rgb):
+                raise ValueError("color 的 R、G、B 必须是 0 到 255 的整数。")
+        else:
+            # Keep workflows saved with the previous packed integer input working.
+            packed = max(0, min(0xFFFFFF, int(color)))
+            rgb = [(packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF]
+
+        return torch.tensor(rgb, dtype=torch.float32).div_(255.0)
 
     def execute(
         self,

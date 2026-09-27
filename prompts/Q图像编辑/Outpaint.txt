@@ -1,0 +1,1 @@
+Outpaint the image: replace the solid gray areas with a seamless continuation of the scene, keeping the existing picture unchanged.
