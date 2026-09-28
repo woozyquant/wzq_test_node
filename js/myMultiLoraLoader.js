@@ -990,6 +990,7 @@ function setupNodeType(nodeType) {
         setupNode(this);
         const restoreRevision = (this.__wzqMultiLoraRestoreRevision || 0) + 1;
         this.__wzqMultiLoraRestoreRevision = restoreRevision;
+        delete this.__wzqPendingMultiLoraRows;
         const propertyRows = info?.properties?.multi_loras_data;
         const hasCurrentPropertyState =
             info?.properties?.multi_loras_version === STATE_VERSION &&
@@ -1033,9 +1034,12 @@ function setupNodeType(nodeType) {
             // Some frontend versions finish assigning widget values after onConfigure.
             // Defer one frame, but invalidate older callbacks so repeated view mounts
             // cannot replay stale state or append another set of rows.
+            const pendingRows = savedRows.map((value) => ({ ...value }));
+            this.__wzqPendingMultiLoraRows = pendingRows;
             requestAnimationFrame(() => {
                 if (this.__wzqMultiLoraRestoreRevision === restoreRevision) {
-                    this.restoreMultiLoraWidgets?.(savedRows);
+                    this.restoreMultiLoraWidgets?.(pendingRows);
+                    delete this.__wzqPendingMultiLoraRows;
                 }
             });
         }
@@ -1045,8 +1049,10 @@ function setupNodeType(nodeType) {
     const originalOnSerialize = nodeType.prototype.onSerialize;
     nodeType.prototype.onSerialize = function (info) {
         const result = originalOnSerialize?.apply(this, arguments);
-        const rows = (this.getMultiLoraWidgets?.() || [])
-            .map((widget) => ({ ...widget.value }));
+        const rows = Array.isArray(this.__wzqPendingMultiLoraRows)
+            ? this.__wzqPendingMultiLoraRows.map((value) => ({ ...value }))
+            : (this.getMultiLoraWidgets?.() || [])
+                .map((widget) => ({ ...widget.value }));
 
         // Do not rely on the frontend's positional widget serializer here.
         // Dynamic rows are the only serializable widgets owned by this node.
