@@ -121,7 +121,7 @@ class PromptManagerPanel {
             .wzq-pm-editor-host{display:flex;flex:1;min-height:0;width:100%;overflow:hidden}.wzq-pm-editor{display:block;flex:1;width:100%;height:100%;min-height:0;margin:0;resize:none;box-sizing:border-box;user-select:text}
             .wzq-pm-fields{display:grid;grid-template-columns:auto minmax(0,1fr) 72px;gap:7px;align-items:center;margin-top:8px;color:#d9dde0}.wzq-pm-name,.wzq-pm-category{width:100%;min-width:0;border:1px solid #41464d;border-radius:5px;background:#202328;color:#e7eaed;padding:5px 8px;outline:none;user-select:text}.wzq-pm-name{height:32px}.wzq-pm-name:focus,.wzq-pm-category:focus{border-color:#3389c9}
             .wzq-pm-actions{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(100px,.8fr);gap:8px;margin-top:8px}.wzq-pm-rename,.wzq-pm-new,.wzq-pm-save{border:1px solid #41464d;border-radius:5px;color:#e1e5e8;font-weight:600;cursor:pointer;transition:background-color .12s ease,border-color .12s ease,color .12s ease}.wzq-pm-rename{height:32px;background:#252a30}.wzq-pm-new,.wzq-pm-save,.wzq-pm-category{height:37px}.wzq-pm-new{background:#1d2126;color:#cbd1d6}.wzq-pm-save{background:#252a30}.wzq-pm-rename:hover:not(:disabled),.wzq-pm-new:hover,.wzq-pm-save:hover{border-color:#59616a;background:#30363d;color:#fff}.wzq-pm-rename:active:not(:disabled),.wzq-pm-new:active,.wzq-pm-save:active{background:#20252a}.wzq-pm-rename:focus-visible,.wzq-pm-new:focus-visible,.wzq-pm-save:focus-visible{outline:1px solid #4c91c5;outline-offset:2px}.wzq-pm-rename:disabled{opacity:.45;cursor:not-allowed}.wzq-pm-new:disabled,.wzq-pm-save:disabled{opacity:.55;cursor:wait}
-            .wzq-pm-status{height:18px;padding-top:4px;color:#7f8991;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wzq-pm-status.error{color:#e37d85}.wzq-pm-status.success{color:#74c790}
+            .wzq-pm-status{display:flex;align-items:center;height:18px;padding-top:4px;color:#7f8991;overflow:hidden;white-space:nowrap}.wzq-pm-status.error{color:#e37d85}.wzq-pm-status.success{color:#74c790}.wzq-pm-status-path{min-width:0;padding:0;border:0;background:transparent;color:inherit;text-decoration:underline;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;cursor:pointer}.wzq-pm-status-path:hover{color:#fff}.wzq-pm-status-path:focus-visible{outline:1px solid #4c91c5;outline-offset:1px}
           </style>
           <div class="wzq-pm-grid">
             <section class="wzq-pm-column">
@@ -180,6 +180,10 @@ class PromptManagerPanel {
         this.renameButton.addEventListener("click", () => this.rename());
         this.newButton.addEventListener("click", () => this.startNewPrompt());
         this.saveButton.addEventListener("click", () => this.save());
+        this.status.addEventListener("click", (event) => {
+            const button = event.target.closest("button[data-prompt-path]");
+            if (button) this.openPromptFolder(button.dataset.promptPath);
+        });
         root.addEventListener("pointerdown", (event) => event.stopPropagation());
         this.handleCanvasWheel = (event) => {
             event.preventDefault();
@@ -233,9 +237,33 @@ class PromptManagerPanel {
         this.node.graph?.setDirtyCanvas(true, true);
     }
 
-    setStatus(message = "", type = "") {
-        this.status.textContent = message;
+    setStatus(message = "", type = "", path = "") {
+        const label = document.createElement("span");
+        label.textContent = message;
+        this.status.replaceChildren(label);
+        if (path) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "wzq-pm-status-path";
+            button.dataset.promptPath = path;
+            button.textContent = path;
+            button.title = `打开所在文件夹：${path}`;
+            this.status.append(button);
+        }
         this.status.className = `wzq-pm-status${type ? ` ${type}` : ""}`;
+    }
+
+    async openPromptFolder(path) {
+        try {
+            const response = await api.fetchApi("/wzq/prompt-manager/open-folder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path }),
+            });
+            await jsonResponse(response);
+        } catch (error) {
+            this.setStatus(error.message, "error");
+        }
     }
 
     async refresh(preferredPath = this.selectedPath, forceRefresh = false) {
@@ -425,7 +453,7 @@ class PromptManagerPanel {
             this.persist();
             this.updateActivePromptRow();
             this.updateRenameButton();
-            this.setStatus(`已载入：${payload.path}`, "success");
+            this.setStatus("已载入：", "success", payload.path);
         } catch (error) {
             this.setStatus(error.message, "error");
         }
@@ -458,7 +486,7 @@ class PromptManagerPanel {
             invalidateSharedLibrary();
             await this.refresh(payload.path);
             this.persist();
-            this.setStatus(`已改名：${payload.path}`, "success");
+            this.setStatus("已改名：", "success", payload.path);
         } catch (error) {
             this.setStatus(error.message, "error");
         } finally {
@@ -494,7 +522,7 @@ class PromptManagerPanel {
             invalidateSharedLibrary();
             await this.refresh(payload.path);
             this.updateRenameButton();
-            this.setStatus(`已保存：${payload.path}`, "success");
+            this.setStatus("已保存：", "success", payload.path);
         } catch (error) {
             if (error.status === 409 && !overwrite) {
                 const confirmed = window.confirm("同名提示词已存在，是否覆盖？");

@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import subprocess
+import sys
 import threading
 import uuid
 from pathlib import Path, PurePosixPath
@@ -272,6 +274,30 @@ async def prompt_manager_read(request):
         return _error("提示词文件不是有效的 UTF-8 文本。", 422)
     except OSError as error:
         return _error(f"读取提示词失败：{error}", 500)
+
+
+@PromptServer.instance.routes.post("/wzq/prompt-manager/open-folder")
+async def prompt_manager_open_folder(request):
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            return _error("请求内容必须是 JSON 对象。")
+        path = _safe_path(payload.get("path", ""), require_file=True)
+        if not path.is_file():
+            return _error("提示词文件不存在。", 404)
+        directory = os.fspath(path.parent)
+        if sys.platform == "win32":
+            command = ["explorer.exe", directory]
+        elif sys.platform == "darwin":
+            command = ["open", directory]
+        else:
+            command = ["xdg-open", directory]
+        await asyncio.to_thread(subprocess.Popen, command)
+        return web.json_response({"status": "ok"})
+    except (ValueError, TypeError) as error:
+        return _error(str(error))
+    except OSError as error:
+        return _error(f"打开提示词文件夹失败：{error}", 500)
 
 
 @PromptServer.instance.routes.post("/wzq/prompt-manager/save")
