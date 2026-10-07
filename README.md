@@ -13,7 +13,7 @@ WZQ
 ├── 图像              智能尺寸、交互式裁剪画布、图像缩放、图像切块、遮罩合成、遮罩填孔
 ├── 尺寸与潜空间       Image Size、Size、Empty Latent、Empty Latent (Qwen)
 ├── 文本与工具         提示词管理器、Split SD Generation Data、Check String Empty、Batch Count、Easy Seed、Current Time
-├── 工具              Reroute（3 个变体）
+├── 工具              文件夹快捷打开、Reroute（3 个变体）
 ├── 视频              Video Combine V2
 └── MiniMax H3         Prompt、Media Input、Media Output
 ```
@@ -49,12 +49,21 @@ WZQ
 | 文本与工具 | Current Time | `myCurrentTimexxx` | 输出当前时间字符串 |
 | 文本与工具 | 提示词管理器 | `WZQPromptManager` | 浏览、编辑并保存 `prompts/` 分类提示词，输出当前文本 |
 | 工具 | Reroute (Any) | `myReroute` | 任意类型单路中继 |
+| 工具 | 文件夹快捷打开 | `WZQFolderShortcuts` | 双列自定义路径按钮，点击打开本机文件夹 |
 | 工具 | Reroute (Any ×3) | `myReroute3` | 任意类型三路中继 |
 | 工具 | Reroute (Model / VAE / CLIP) | `myReroutexxx` | 模型组三路中继 |
 | 视频 | Video Combine V2 (WZQ) | `WZQVideoCombineV2` | 将图像帧合成 GIF/WebP/视频，可合并音频并保留元数据 |
 | MiniMax H3 | MiniMax-H3 Prompt (WZQ) | `WZQMiniMaxH3Prompt` | 富文本提示词编辑，见下文 |
 | MiniMax H3 | MiniMax-H3 Media Input (WZQ) | `WZQMiniMaxH3MediaInput` | 打包图像/视频/音频素材 |
 | MiniMax H3 | MiniMax-H3 Media Output (WZQ) | `WZQMiniMaxH3MediaOutput` | 拆分素材包为多路输出 |
+
+## 文件夹快捷打开
+
+在 `WZQ → 工具` 中添加「文件夹快捷打开」。默认显示输出、输入、模型和本插件目录，
+点击按钮直接打开文件夹，不需要连线或执行工作流。鼠标悬停可查看完整路径。
+点击「管理路径」可添加、删除或修改按钮名称和绝对路径，点击「保存」后再保存工作流，
+下次载入会恢复配置。Windows 路径支持环境变量，如 `%USERPROFILE%\Pictures`。
+文件夹必须已存在；远程访问时打开的是运行 ComfyUI 的电脑上的文件夹。
 
 ## 提示词管理器
 

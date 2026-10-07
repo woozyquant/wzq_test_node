@@ -33,6 +33,7 @@ from .wzq.minimax_h3_prompt import (
     WZQMiniMaxH3Prompt,
 )
 from .wzq.prompt_manager import WZQPromptManager
+from .wzq.folder_shortcuts import WZQFolderShortcuts
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
 from .wzq import server as _wzq_server  # noqa: F401
@@ -72,6 +73,7 @@ NODE_CLASS_MAPPINGS = {
     "WZQMiniMaxH3MediaOutput": WZQMiniMaxH3MediaOutput,
     "WZQVideoCombineV2": VideoCombineV2,
     "WZQPromptManager": WZQPromptManager,
+    "WZQFolderShortcuts": WZQFolderShortcuts,
 }
 
 
@@ -93,6 +95,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "myReroute": "Reroute (Any)",
     "myReroute3": "Reroute (Any ×3)",
     "myReroutexxx": "Reroute (Model / VAE / CLIP)",
+    "WZQFolderShortcuts": "文件夹快捷打开",
 
     # 尺寸与潜空间
     "myImageSizexxx": "Image Size",

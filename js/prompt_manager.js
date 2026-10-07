@@ -186,12 +186,12 @@ class PromptManagerPanel {
         });
         root.addEventListener("pointerdown", (event) => event.stopPropagation());
         this.handleCanvasWheel = (event) => {
-            event.preventDefault();
             event.stopPropagation();
+            // Preserve native list scrolling without forwarding the wheel to the canvas.
+            if (this.tree.contains(event.target)) return;
+            event.preventDefault();
             app.canvas?.processMouseWheel?.(event);
         };
-        // Match native ComfyUI canvas navigation even when the pointer is over
-        // the prompt list, form controls, or the multiline prompt widget.
         root.addEventListener("wheel", this.handleCanvasWheel, { capture: true, passive: false });
 
         const domWidget = this.node.addDOMWidget("wzq_prompt_manager_panel", "div", root, {

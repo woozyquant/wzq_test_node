@@ -1,0 +1,35 @@
+.wzq-folder-shortcuts {
+    width: 100%; height: 100%; box-sizing: border-box; padding: 12px;
+    overflow: auto; font: 13px/1.4 "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--comfy-menu-bg, #303033); color: var(--fg-color, #e5e7eb);
+    border-radius: 6px; display: flex; flex-direction: column; gap: 12px;
+}
+.wzq-folder-shortcuts * { box-sizing: border-box; }
+.wzq-folder-shortcuts > * { flex-shrink: 0; }
+.wzq-folder-shortcuts .wzq-fs-caption { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; opacity: .75; }
+.wzq-folder-shortcuts .wzq-fs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.wzq-folder-shortcuts button { color: inherit; font: inherit; cursor: pointer; border-radius: 6px; }
+.wzq-folder-shortcuts button:disabled { opacity: .55; cursor: wait; }
+.wzq-folder-shortcuts button:hover:not(:disabled) { filter: brightness(1.15); }
+.wzq-folder-shortcuts .wzq-fs-open {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 9px; min-height: 84px; padding: 10px; border: 1px solid var(--border-color, #505055);
+    background: var(--comfy-input-bg, #3c3c40); min-width: 0;
+}
+.wzq-folder-shortcuts .wzq-fs-open svg { width: 21px; height: 20px; flex-shrink: 0; }
+.wzq-folder-shortcuts .wzq-fs-open span { max-width: 100%; overflow-wrap: anywhere; }
+.wzq-folder-shortcuts .wzq-fs-manage { padding: 9px; background: transparent; border: 1px dashed var(--border-color, #505055); font-size: 12px; }
+.wzq-folder-shortcuts .wzq-fs-editor[hidden] { display: none; }
+.wzq-folder-shortcuts .wzq-fs-row { padding: 10px 0; border-bottom: 1px solid var(--border-color, #505055); }
+.wzq-folder-shortcuts .wzq-fs-row-head { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.wzq-folder-shortcuts label { display: block; font-size: 11px; }
+.wzq-folder-shortcuts .wzq-fs-row-head label { flex: 1; min-width: 0; }
+.wzq-folder-shortcuts input { width: 100%; min-width: 0; margin-top: 3px; padding: 7px; border-radius: 4px; border: 1px solid var(--border-color, #505055); background: var(--comfy-input-bg, #3c3c40); color: var(--input-text, #e5e7eb); font: inherit; font-size: 12px; }
+.wzq-folder-shortcuts .wzq-fs-delete { border: 0; background: transparent; padding: 7px; font-size: 12px; }
+.wzq-folder-shortcuts .wzq-fs-actions, .wzq-folder-shortcuts .wzq-fs-save-actions { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+.wzq-folder-shortcuts .wzq-fs-actions { margin-top: 12px; }
+.wzq-folder-shortcuts .wzq-fs-actions button { padding: 7px 10px; border: 1px solid var(--border-color, #505055); background: var(--comfy-input-bg, #3c3c40); font-size: 12px; }
+.wzq-folder-shortcuts .wzq-fs-save { font-weight: 600; }
+.wzq-folder-shortcuts .wzq-fs-status { font-size: 11px; opacity: .8; overflow-wrap: anywhere; }
+.wzq-folder-shortcuts .wzq-fs-status.error { color: #ef8585; opacity: 1; }
+.wzq-folder-shortcuts .wzq-fs-empty { grid-column: 1 / -1; padding: 12px 0; opacity: .7; font-size: 12px; }
