@@ -193,7 +193,8 @@ class FolderShortcutsPanel {
         pathLabel.textContent = "文件夹路径";
         const path = document.createElement("input");
         path.value = item.path;
-        path.placeholder = "文件夹的绝对路径";
+        path.placeholder = "绝对路径或相对路径（如 output）";
+        path.title = "相对路径以 ComfyUI 基础目录为准（支持 . 和 ..）";
         path.required = true;
         path.spellcheck = false;
         pathLabel.append(path);

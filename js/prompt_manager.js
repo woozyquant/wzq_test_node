@@ -8,6 +8,7 @@ const PANEL_MIN_HEIGHT = 402;
 const TREE_ROW_HEIGHT = 30;
 const TREE_OVERSCAN = 6;
 const SEARCH_DELAY = 150;
+const NAME_ORDER = new Intl.Collator("zh-CN", { sensitivity: "base", numeric: true });
 
 let sharedLibrary = null;
 let sharedLibraryPromise = null;
@@ -61,8 +62,8 @@ function normalizeLibrary(payload) {
         prompts: (Array.isArray(category.prompts) ? category.prompts : []).map((prompt) => ({
             ...prompt,
             _search: String(prompt.name || "").toLocaleLowerCase(),
-        })),
-    }));
+        })).sort((a, b) => NAME_ORDER.compare(a.name, b.name)),
+    })).sort((a, b) => NAME_ORDER.compare(a.path || a.name, b.path || b.name));
 }
 
 function invalidateSharedLibrary() {
@@ -305,28 +306,34 @@ class PromptManagerPanel {
         if (!this.treeContent) return;
         const query = this.search.value.trim().toLocaleLowerCase();
         const rows = [];
-        let visibleCount = 0;
+        const children = new Map();
         for (const category of this.categories) {
-            const categoryParts = String(category.path || "").split("/").filter(Boolean);
-            if (!query && categoryParts.length > 1) {
-                const ancestors = categoryParts.slice(0, -1).map((_, index) => categoryParts.slice(0, index + 1).join("/"));
-                if (ancestors.some((path) => !this.expanded.has(path))) continue;
-            }
+            const parentPath = String(category.path || "").split("/").slice(0, -1).join("/");
+            if (!children.has(parentPath)) children.set(parentPath, []);
+            children.get(parentPath).push(category);
+        }
+        let visibleCount = 0;
+        const appendCategory = (category) => {
             const prompts = Array.isArray(category.prompts) ? category.prompts : [];
             const categoryMatches = !query || category._search.includes(query);
             const visiblePrompts = query && !categoryMatches
                 ? prompts.filter((prompt) => prompt._search.includes(query))
                 : prompts;
-            if (query && !categoryMatches && !visiblePrompts.length) continue;
-            visibleCount += 1;
             const isExpanded = Boolean(query) || this.expanded.has(category.path);
-            rows.push({ type: "folder", category, isExpanded });
+            if (categoryMatches || visiblePrompts.length) {
+                visibleCount += 1;
+                rows.push({ type: "folder", category, isExpanded });
+            }
 
-            if (!isExpanded) continue;
+            if (!isExpanded) return;
+            if (category.path) {
+                for (const child of children.get(category.path) || []) appendCategory(child);
+            }
             for (const prompt of visiblePrompts) {
                 rows.push({ type: "prompt", category, prompt });
             }
-        }
+        };
+        for (const category of children.get("") || []) appendCategory(category);
         this.treeRows = rows;
         this.treeContent.style.height = visibleCount
             ? `${Math.max(1, rows.length * TREE_ROW_HEIGHT)}px`

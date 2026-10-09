@@ -18,6 +18,7 @@ package.__path__ = [str(ROOT / "wzq")]
 routes = web.RouteTableDef()
 server = types.SimpleNamespace(PromptServer=types.SimpleNamespace(instance=types.SimpleNamespace(routes=routes)))
 folders = types.SimpleNamespace(
+    base_path=str(ROOT),
     get_output_directory=lambda: str(ROOT / "output"),
     get_input_directory=lambda: str(ROOT / "input"),
     models_dir=str(ROOT / "models"),
@@ -35,6 +36,9 @@ class FolderShortcutsTests(unittest.IsolatedAsyncioTestCase):
         self.directory = Path(self.temporary.name) / "中文 素材 & files"
         self.directory.mkdir()
         self.config_path = Path(self.temporary.name) / "folder_shortcuts.json"
+        base_patch = patch.object(shortcuts.folder_paths, "base_path", self.temporary.name)
+        base_patch.start()
+        self.addCleanup(base_patch.stop)
         config_patch = patch.object(shortcuts, "CONFIG_PATH", self.config_path)
         config_patch.start()
         self.addCleanup(config_patch.stop)
@@ -55,9 +59,10 @@ class FolderShortcutsTests(unittest.IsolatedAsyncioTestCase):
         cases = [
             ({"path": str(file)}, 404),
             ({"path": str(self.directory / "missing")}, 404),
-            ({"path": "relative/path"}, 400),
+            ({"path": "relative/path"}, 404),
             ({"path": "https://example.com"}, 400),
             ({"path": ""}, 400),
+            ({"path": '""'}, 400),
             ({"path": "\0"}, 400),
             ({"path": [str(self.directory)]}, 400),
             ({}, 400),
@@ -70,6 +75,25 @@ class FolderShortcutsTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(response.status, status)
                     self.assertIn("error", json.loads(response.text))
         launch.assert_not_called()
+
+    async def test_relative_paths_use_comfy_base_directory(self):
+        nested = self.directory / "nested"
+        nested.mkdir()
+        cases = [
+            (self.directory.name, self.directory),
+            (f"./{self.directory.name}/nested/..", self.directory),
+            (".", self.config_path.parent),
+            (f'"{self.directory.name}"', self.directory),
+        ]
+        for value, expected in cases:
+            with self.subTest(value=value), patch.object(shortcuts, "_open_directory") as launch:
+                response = await self.request({"path": value})
+                self.assertEqual(response.status, 200)
+                launch.assert_called_once_with(expected.resolve())
+        with patch.object(shortcuts.folder_paths, "base_path", str(nested)), patch.object(shortcuts, "_open_directory") as launch:
+            response = await self.request({"path": ".."})
+        self.assertEqual(response.status, 200)
+        launch.assert_called_once_with(self.directory.resolve())
 
     def test_environment_variables_and_copied_quotes(self):
         with patch.dict(os.environ, {"WZQ_TEST_FOLDER": str(self.directory)}):
@@ -122,6 +146,20 @@ class FolderShortcutsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(response.text)["items"], config["items"])
         self.assertEqual(json.loads(response.text)["config_path"], str(self.config_path))
 
+    async def test_relative_config_round_trip_and_open(self):
+        config = {"items": [
+            {"name": "素材", "path": f"./{self.directory.name}"},
+            {"name": "尚未创建", "path": "../offline"},
+        ]}
+        self.assertEqual((await self.save(config)).status, 200)
+        response = await shortcuts.folder_shortcuts_config(None)
+        self.assertEqual(json.loads(response.text)["items"], config["items"])
+        self.assertEqual(json.loads(self.config_path.read_text(encoding="utf-8")), config)
+        with patch.object(shortcuts, "_open_directory") as launch:
+            response = await self.request({"path": config["items"][0]["path"]})
+        self.assertEqual(response.status, 200)
+        launch.assert_called_once_with(self.directory.resolve())
+
     async def test_manual_json_edit_and_empty_list(self):
         config = {"items": [{"name": "手工编辑", "path": str(self.directory)}]}
         self.config_path.write_text(json.dumps(config), encoding="utf-8-sig")
@@ -132,7 +170,7 @@ class FolderShortcutsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(response.text)["items"], [])
 
     async def test_bad_json_is_reported_without_overwriting(self):
-        for content in ["{bad json", '{"items": "invalid"}', '{"items": [{"name": "Bad", "path": "relative"}]}']:
+        for content in ["{bad json", '{"items": "invalid"}', '{"items": [{"name": "Bad", "path": ""}]}']:
             with self.subTest(content=content):
                 self.config_path.write_text(content, encoding="utf-8")
                 response = await shortcuts.folder_shortcuts_config(None)
@@ -142,7 +180,7 @@ class FolderShortcutsTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_save_preserves_previous_config(self):
         previous = {"items": [{"name": "原路径", "path": str(self.directory)}]}
         await self.save(previous)
-        for payload in [None, [], {}, {"items": "invalid"}, {"items": [{}]}, {"items": [{"name": "", "path": str(self.directory)}]}, {"items": [{"name": "Bad", "path": "relative"}]}]:
+        for payload in [None, [], {}, {"items": "invalid"}, {"items": [{}]}, {"items": [{"name": "", "path": str(self.directory)}]}, {"items": [{"name": "Bad", "path": ""}]}]:
             with self.subTest(payload=payload):
                 response = await self.save(payload)
                 self.assertEqual(response.status, 400)

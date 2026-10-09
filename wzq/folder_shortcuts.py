@@ -20,20 +20,22 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "folder_shortcuts.json"
 _config_lock = threading.Lock()
 
 
-def _absolute_path(value):
+def _resolve_path(value):
     if not isinstance(value, str) or not value.strip() or "\0" in value:
         raise ValueError("请输入有效的文件夹路径。")
     value = value.strip()
     if value.startswith('"') and value.endswith('"'):
         value = value[1:-1]
+    if not value.strip() or "://" in value:
+        raise ValueError("请输入有效的文件夹路径。")
     path = Path(os.path.expandvars(os.path.expanduser(value)))
     if not path.is_absolute():
-        raise ValueError("请填写文件夹的绝对路径。")
+        path = Path(folder_paths.base_path) / path
     return path
 
 
 def _directory(value):
-    path = _absolute_path(value).resolve()
+    path = _resolve_path(value).resolve()
     if not path.is_dir():
         raise FileNotFoundError("文件夹不存在，或该路径指向文件。")
     return path
@@ -64,7 +66,7 @@ def _validate_config(payload):
     for index, item in enumerate(payload["items"], 1):
         if not isinstance(item, dict) or not isinstance(item.get("name"), str) or not item["name"].strip():
             raise ValueError(f"第 {index} 条路径缺少按钮名称。")
-        _absolute_path(item.get("path"))
+        _resolve_path(item.get("path"))
         items.append({"name": item["name"].strip(), "path": item["path"].strip()})
     return {"items": items}
 
@@ -146,7 +148,7 @@ class WZQFolderShortcuts:
     RETURN_TYPES = ()
     FUNCTION = "execute"
     CATEGORY = categories.TOOLS
-    DESCRIPTION = "点击按钮打开本机文件夹；路径配置加载和保存至插件目录的 folder_shortcuts.json。"
+    DESCRIPTION = "点击按钮打开本机文件夹；相对路径以 ComfyUI 基础目录为准。用户配置保存至插件目录的 folder_shortcuts.json。"
 
     def execute(self):
         return ()

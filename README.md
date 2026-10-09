@@ -61,9 +61,13 @@ WZQ
 
 在 `WZQ → 工具` 中添加「文件夹快捷打开」。默认显示输出、输入、模型和本插件目录，
 点击按钮直接打开文件夹，不需要连线或执行工作流。鼠标悬停可查看完整路径。
-点击「管理路径」可添加、删除或修改按钮名称和绝对路径，点击「保存」直接写入插件根目录
+点击「管理路径」可添加、删除或修改按钮名称和路径，点击「保存」直接写入插件根目录
 的 `folder_shortcuts.json`，所有节点共用此配置。首次加载会自动创建默认配置，不依赖工作流保存。
-也可以直接编辑 JSON 文件，再点击「重新加载 JSON」。Windows 路径支持环境变量，如 `%USERPROFILE%\Pictures`。
+此 JSON 是本机用户配置，不纳入 Git 跟踪，后续更新不会覆盖；已有配置会原样保留。
+也可以直接编辑 JSON 文件，再点击「重新加载 JSON」。支持绝对路径和相对路径；相对路径以
+ComfyUI 基础目录（`folder_paths.base_path`，可由 `--base-directory` 指定）为准，与启动时的工作目录无关。
+例如 `output`、`./models/loras`、`../素材`，其中 `.` 表示基础目录，`..` 表示上一级目录。
+Windows 路径支持环境变量，如 `%USERPROFILE%\Pictures`；保存时保留原始路径，打开时解析。
 文件夹必须已存在；远程访问时打开的是运行 ComfyUI 的电脑上的文件夹。
 
 JSON 格式（Windows 路径也可用 `/`，使用 `\` 时需写成 `\\`）：
@@ -71,6 +75,8 @@ JSON 格式（Windows 路径也可用 `/`，使用 `\` 时需写成 `\\`）：
 ```json
 {
   "items": [
+    { "name": "输出", "path": "output" },
+    { "name": "LoRA", "path": "./models/loras" },
     { "name": "我的素材库", "path": "D:/素材库" },
     { "name": "图片", "path": "%USERPROFILE%/Pictures" }
   ]
