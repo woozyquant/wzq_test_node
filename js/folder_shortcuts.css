@@ -19,6 +19,9 @@
 .wzq-folder-shortcuts .wzq-fs-open svg { width: 21px; height: 20px; flex-shrink: 0; }
 .wzq-folder-shortcuts .wzq-fs-open span { max-width: 100%; overflow-wrap: anywhere; }
 .wzq-folder-shortcuts .wzq-fs-manage { padding: 9px; background: transparent; border: 1px dashed var(--border-color, #505055); font-size: 12px; }
+.wzq-folder-shortcuts .wzq-fs-toolbar { display: flex; gap: 8px; }
+.wzq-folder-shortcuts .wzq-fs-manage { flex: 1; }
+.wzq-folder-shortcuts .wzq-fs-reload { padding: 9px; background: var(--comfy-input-bg, #3c3c40); border: 1px solid var(--border-color, #505055); font-size: 12px; }
 .wzq-folder-shortcuts .wzq-fs-editor[hidden] { display: none; }
 .wzq-folder-shortcuts .wzq-fs-row { padding: 10px 0; border-bottom: 1px solid var(--border-color, #505055); }
 .wzq-folder-shortcuts .wzq-fs-row-head { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }

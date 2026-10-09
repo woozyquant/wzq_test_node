@@ -61,9 +61,21 @@ WZQ
 
 在 `WZQ → 工具` 中添加「文件夹快捷打开」。默认显示输出、输入、模型和本插件目录，
 点击按钮直接打开文件夹，不需要连线或执行工作流。鼠标悬停可查看完整路径。
-点击「管理路径」可添加、删除或修改按钮名称和绝对路径，点击「保存」后再保存工作流，
-下次载入会恢复配置。Windows 路径支持环境变量，如 `%USERPROFILE%\Pictures`。
+点击「管理路径」可添加、删除或修改按钮名称和绝对路径，点击「保存」直接写入插件根目录
+的 `folder_shortcuts.json`，所有节点共用此配置。首次加载会自动创建默认配置，不依赖工作流保存。
+也可以直接编辑 JSON 文件，再点击「重新加载 JSON」。Windows 路径支持环境变量，如 `%USERPROFILE%\Pictures`。
 文件夹必须已存在；远程访问时打开的是运行 ComfyUI 的电脑上的文件夹。
+
+JSON 格式（Windows 路径也可用 `/`，使用 `\` 时需写成 `\\`）：
+
+```json
+{
+  "items": [
+    { "name": "我的素材库", "path": "D:/素材库" },
+    { "name": "图片", "path": "%USERPROFILE%/Pictures" }
+  ]
+}
+```
 
 ## 提示词管理器
 
@@ -136,7 +148,11 @@ conditioning、latent 或 VAE 输出。输出包括 `final_prompt`（`STRING`）
 配套节点：
 
 - `MiniMax-H3 Media Input (WZQ)`：提供首尾帧、9路参考图片、3路参考视频、
-  Hybrid 音频和3路参考音频输入，并打包为 `media_out`；
+  Hybrid 音频和3路参考音频输入，并打包为 `media_out`；参考视频同时支持 `VIDEO`
+  和 VHS `Load Video (Upload)` 的 `IMAGE` 帧批次。将 VHS 的 `IMAGE`、`video_info`、
+  `audio` 分别连接到同一编号的 `ref_video_N`、`ref_video_info_N`、`ref_video_audio_N`。
+  不连接 `video_info` 时按24 FPS处理，可将 VHS 的 `force_rate` 设为24；VHS 的 `vae`
+  保持不连接，以输出图像帧。
 - `MiniMax-H3 Media Output (WZQ)`：接受 `media_in`，拆分输出11路 `IMAGE`、
   3路兼容内置 H3 节点的24 FPS视频帧 `IMAGE`、4路 `AUDIO`，并额外保留3路
   原始 `VIDEO` 和对应的3路视频音轨 `AUDIO`；在提示词面板中裁剪过的音频会按

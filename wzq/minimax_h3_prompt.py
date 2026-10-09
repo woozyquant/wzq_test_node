@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import json
 import math
+from fractions import Fraction
+
+import torch
+from comfy_api.latest import VideoComponents, VideoFromComponents
 
 from ..prompt_tags import prepare_prompt
 from . import categories
@@ -244,8 +248,6 @@ def _video_frames_at_24fps(video, components=None):
     if source_count <= 1 or source_fps <= 0 or abs(source_fps - 24.0) < 1e-6:
         return images
 
-    import torch
-
     target_count = max(1, int(round(source_count * 24.0 / source_fps)))
     indices = torch.linspace(
         0,
@@ -462,8 +464,18 @@ class WZQMiniMaxH3MediaInput:
     def INPUT_TYPES(cls):
         optional = {"media_in": (MEDIA_TYPE,)}
         optional.update({slot: ("IMAGE",) for slot in IMAGE_SLOTS})
-        optional.update({slot: ("VIDEO",) for slot in VIDEO_SLOTS})
+        optional.update({
+            slot: ("VIDEO,IMAGE", {"tooltip": "接收 VIDEO 或 VHS Load Video 的 IMAGE 视频帧；未连接 video_info 时按 24 FPS 处理。"})
+            for slot in VIDEO_SLOTS
+        })
         optional.update({slot: ("AUDIO",) for slot in AUDIO_SLOTS})
+        for index in range(1, 4):
+            optional[f"ref_video_info_{index}"] = (
+                "VHS_VIDEOINFO", {"tooltip": f"连接对应 VHS Load Video 的 video_info，为 ref_video_{index} 提供加载后的实际帧率。"}
+            )
+            optional[f"ref_video_audio_{index}"] = (
+                "AUDIO", {"tooltip": f"连接对应 VHS Load Video 的 audio，作为 ref_video_{index} 的音轨。"}
+            )
         return {
             "required": {},
             "optional": optional,
@@ -473,7 +485,7 @@ class WZQMiniMaxH3MediaInput:
     RETURN_NAMES = ("media_out",)
     FUNCTION = "pack"
     CATEGORY = categories.MINIMAX_H3
-    DESCRIPTION = "Packs multiple IMAGE, VIDEO, and AUDIO inputs into WZQ_H3_MEDIA."
+    DESCRIPTION = "Packs IMAGE, VIDEO, and AUDIO inputs into WZQ_H3_MEDIA; reference videos also accept VHS Load Video IMAGE batches with optional video_info and audio."
     OUTPUT_TOOLTIPS = ("包含全部输入素材的媒体包。",)
 
     def pack(self, media_in=None, **kwargs):
@@ -483,6 +495,15 @@ class WZQMiniMaxH3MediaInput:
             value = kwargs.get(slot)
             if not _has_media(value):
                 continue
+            if slot in VIDEO_SLOTS and isinstance(value, torch.Tensor):
+                index = slot.rsplit("_", 1)[1]
+                info = kwargs.get(f"ref_video_info_{index}") or {}
+                frame_rate = Fraction(str(info.get("loaded_fps", 24.0)))
+                value = VideoFromComponents(VideoComponents(
+                    images=value,
+                    frame_rate=frame_rate,
+                    audio=kwargs.get(f"ref_video_audio_{index}"),
+                ))
             by_slot[slot] = {
                 "slot": slot,
                 "kind": _slot_kind(slot),

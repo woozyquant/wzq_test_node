@@ -2,7 +2,6 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
 const NODE_NAME = "WZQFolderShortcuts";
-const PROPERTY = "wzq_folder_shortcuts";
 const FOLDER_ICON = `<svg viewBox="0 0 20 18" aria-hidden="true"><path d="M2 4V3a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 
 async function requestJson(url, options) {
@@ -34,12 +33,16 @@ class FolderShortcutsPanel {
         this.node = node;
         this.items = [];
         this.destroyed = false;
+        this.loadSerial = 0;
         this.root = document.createElement("div");
         this.root.className = "wzq-folder-shortcuts";
         this.root.innerHTML = `
             <div class="wzq-fs-caption"><span>常用文件夹</span><span class="wzq-fs-count"></span></div>
             <div class="wzq-fs-grid"></div>
-            <button type="button" class="wzq-fs-manage" aria-expanded="false">⚙ 管理路径</button>
+            <div class="wzq-fs-toolbar">
+                <button type="button" class="wzq-fs-manage" aria-expanded="false">⚙ 管理路径</button>
+                <button type="button" class="wzq-fs-reload">重新加载 JSON</button>
+            </div>
             <form class="wzq-fs-editor" hidden>
                 <div class="wzq-fs-fields"></div>
                 <div class="wzq-fs-actions">
@@ -47,11 +50,12 @@ class FolderShortcutsPanel {
                     <span class="wzq-fs-save-actions"><button type="button" class="wzq-fs-cancel">取消</button><button type="submit" class="wzq-fs-save">保存</button></span>
                 </div>
             </form>
-            <div class="wzq-fs-status" role="status" aria-live="polite">正在读取默认路径…</div>`;
+            <div class="wzq-fs-status" role="status" aria-live="polite">正在读取 JSON 配置…</div>`;
         this.grid = this.root.querySelector(".wzq-fs-grid");
         this.editor = this.root.querySelector(".wzq-fs-editor");
         this.fields = this.root.querySelector(".wzq-fs-fields");
         this.manage = this.root.querySelector(".wzq-fs-manage");
+        this.reload = this.root.querySelector(".wzq-fs-reload");
         this.status = this.root.querySelector(".wzq-fs-status");
         this.domWidget = node.addDOMWidget("wzq_folder_shortcuts_panel", "div", this.root, {
             serialize: false,
@@ -59,6 +63,7 @@ class FolderShortcutsPanel {
             getMinHeight: () => this.panelHeight || 260,
         });
         this.manage.onclick = () => this.toggleEditor();
+        this.reload.onclick = () => this.loadConfig();
         this.root.querySelector(".wzq-fs-add").onclick = () => {
             this.addRow();
             this.updateSize();
@@ -75,39 +80,39 @@ class FolderShortcutsPanel {
             app.canvas?.processMouseWheel?.(event);
         };
         this.root.addEventListener("wheel", this.handleCanvasWheel, { capture: true, passive: false });
-        this.restore();
-        this.loadDefaults();
-    }
-
-    restore() {
-        const saved = this.node.properties?.[PROPERTY];
-        if (!Array.isArray(saved)) return;
-        this.items = saved.filter(item => item && typeof item.name === "string" && typeof item.path === "string")
-            .map(item => ({ name: item.name, path: item.path }));
-        this.closeEditor();
+        this.handleConfigSaved = (event) => {
+            if (this.editor.hidden) this.applyConfig(event.detail);
+        };
+        window.addEventListener("wzq-folder-shortcuts-saved", this.handleConfigSaved);
         this.render();
-        this.setStatus("就绪");
+        this.loadConfig();
     }
 
-    async loadDefaults() {
-        if (Array.isArray(this.node.properties?.[PROPERTY])) return;
+    async loadConfig() {
+        const serial = ++this.loadSerial;
+        this.manage.disabled = true;
+        this.reload.disabled = true;
+        this.setStatus("正在读取 JSON 配置…");
         try {
-            const payload = await requestJson("/wzq/folder-shortcuts/defaults");
-            // A workflow may finish configuring while the request is in flight.
-            if (this.destroyed || Array.isArray(this.node.properties?.[PROPERTY])) return;
-            this.items = payload.items;
-            this.persist();
-            this.render();
-            this.setStatus("就绪");
+            const payload = await requestJson("/wzq/folder-shortcuts/config", { cache: "no-store" });
+            if (this.destroyed || serial !== this.loadSerial) return;
+            this.applyConfig(payload);
         } catch (error) {
-            if (!this.destroyed && !Array.isArray(this.node.properties?.[PROPERTY])) this.setStatus(error.message, true);
+            if (!this.destroyed && serial === this.loadSerial) this.setStatus(error.message, true);
+        } finally {
+            if (!this.destroyed) {
+                this.manage.disabled = false;
+                this.reload.disabled = !this.editor.hidden;
+            }
         }
     }
 
-    persist() {
-        this.node.properties = this.node.properties || {};
-        this.node.properties[PROPERTY] = this.items.map(item => ({ ...item }));
-        this.node.graph?.setDirtyCanvas(true, true);
+    applyConfig(payload) {
+        this.loadSerial += 1;
+        this.items = payload.items.map(item => ({ ...item }));
+        this.render();
+        this.setStatus("已加载 folder_shortcuts.json");
+        this.reload.title = payload.config_path;
     }
 
     render() {
@@ -156,12 +161,14 @@ class FolderShortcutsPanel {
         this.items.forEach(item => this.addRow(item));
         if (!this.items.length) this.addRow();
         this.editor.hidden = false;
+        this.reload.disabled = true;
         this.manage.setAttribute("aria-expanded", "true");
         this.updateSize();
     }
 
     closeEditor() {
         this.editor.hidden = true;
+        this.reload.disabled = false;
         this.manage.setAttribute("aria-expanded", "false");
         this.updateSize();
     }
@@ -194,7 +201,7 @@ class FolderShortcutsPanel {
         this.fields.append(row);
     }
 
-    save() {
+    async save() {
         const items = Array.from(this.fields.children).map(row => {
             const inputs = row.querySelectorAll("input");
             return { name: inputs[0].value.trim(), path: inputs[1].value.trim() };
@@ -203,11 +210,25 @@ class FolderShortcutsPanel {
             this.setStatus("请填写按钮名称和文件夹路径。", true);
             return;
         }
-        this.items = items;
-        this.persist();
-        this.closeEditor();
-        this.render();
-        this.setStatus("已保存；保存工作流可保留此配置");
+        const controls = Array.from(this.editor.querySelectorAll("input, button"));
+        controls.push(this.manage);
+        controls.forEach(control => { control.disabled = true; });
+        this.setStatus("正在保存 JSON 配置…");
+        try {
+            const payload = await requestJson("/wzq/folder-shortcuts/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items }),
+            });
+            if (this.destroyed) return;
+            this.closeEditor();
+            window.dispatchEvent(new CustomEvent("wzq-folder-shortcuts-saved", { detail: payload }));
+            this.setStatus("已保存到 folder_shortcuts.json");
+        } catch (error) {
+            if (!this.destroyed) this.setStatus(error.message, true);
+        } finally {
+            controls.forEach(control => { control.disabled = false; });
+        }
     }
 
     setStatus(message, error = false) {
@@ -228,6 +249,7 @@ class FolderShortcutsPanel {
 
     destroy() {
         this.destroyed = true;
+        window.removeEventListener("wzq-folder-shortcuts-saved", this.handleConfigSaved);
         this.root.removeEventListener("wheel", this.handleCanvasWheel, { capture: true });
         this.root.remove();
     }
@@ -247,12 +269,6 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function () {
             const result = created?.apply(this, arguments);
             attachPanel(this);
-            return result;
-        };
-        const configure = nodeType.prototype.onConfigure;
-        nodeType.prototype.onConfigure = function () {
-            const result = configure?.apply(this, arguments);
-            this._wzqFolderShortcutsPanel?.restore();
             return result;
         };
         const removed = nodeType.prototype.onRemoved;

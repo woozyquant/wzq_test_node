@@ -1,9 +1,12 @@
 """Folder shortcuts operated directly from the node's frontend panel."""
 
 import asyncio
+import json
 import os
 import subprocess
 import sys
+import tempfile
+import threading
 from pathlib import Path
 
 import folder_paths
@@ -13,7 +16,11 @@ from server import PromptServer
 from . import categories
 
 
-def _directory(value):
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "folder_shortcuts.json"
+_config_lock = threading.Lock()
+
+
+def _absolute_path(value):
     if not isinstance(value, str) or not value.strip() or "\0" in value:
         raise ValueError("请输入有效的文件夹路径。")
     value = value.strip()
@@ -22,7 +29,11 @@ def _directory(value):
     path = Path(os.path.expandvars(os.path.expanduser(value)))
     if not path.is_absolute():
         raise ValueError("请填写文件夹的绝对路径。")
-    path = path.resolve()
+    return path
+
+
+def _directory(value):
+    path = _absolute_path(value).resolve()
     if not path.is_dir():
         raise FileNotFoundError("文件夹不存在，或该路径指向文件。")
     return path
@@ -37,14 +48,77 @@ def _open_directory(path):
         subprocess.Popen([command, directory])
 
 
-@PromptServer.instance.routes.get("/wzq/folder-shortcuts/defaults")
-async def folder_shortcuts_defaults(request):
-    return web.json_response({"items": [
+def _default_config():
+    return {"items": [
         {"name": "输出文件夹", "path": folder_paths.get_output_directory()},
         {"name": "输入素材", "path": folder_paths.get_input_directory()},
         {"name": "模型目录", "path": folder_paths.models_dir},
         {"name": "插件目录", "path": os.fspath(Path(__file__).resolve().parent.parent)},
-    ]})
+    ]}
+
+
+def _validate_config(payload):
+    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+        raise ValueError("JSON 必须是包含 items 数组的对象。")
+    items = []
+    for index, item in enumerate(payload["items"], 1):
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str) or not item["name"].strip():
+            raise ValueError(f"第 {index} 条路径缺少按钮名称。")
+        _absolute_path(item.get("path"))
+        items.append({"name": item["name"].strip(), "path": item["path"].strip()})
+    return {"items": items}
+
+
+def _write_config(config):
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=CONFIG_PATH.parent,
+            prefix=".folder_shortcuts-", suffix=".tmp", delete=False,
+        ) as output:
+            temporary = Path(output.name)
+            json.dump(config, output, ensure_ascii=False, indent=2)
+            output.write("\n")
+        os.replace(temporary, CONFIG_PATH)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _load_config():
+    with _config_lock:
+        if not CONFIG_PATH.exists():
+            config = _default_config()
+            _write_config(config)
+            return config
+        return _validate_config(json.loads(CONFIG_PATH.read_text(encoding="utf-8-sig")))
+
+
+def _save_config(payload):
+    config = _validate_config(payload)
+    with _config_lock:
+        _write_config(config)
+    return config
+
+
+@PromptServer.instance.routes.get("/wzq/folder-shortcuts/config")
+async def folder_shortcuts_config(request):
+    try:
+        config = await asyncio.to_thread(_load_config)
+        return web.json_response({**config, "config_path": os.fspath(CONFIG_PATH)})
+    except (ValueError, OSError) as error:
+        return web.json_response({"error": f"读取 folder_shortcuts.json 失败：{error}"}, status=500)
+
+
+@PromptServer.instance.routes.post("/wzq/folder-shortcuts/config")
+async def folder_shortcuts_save(request):
+    try:
+        config = await asyncio.to_thread(_save_config, await request.json())
+        return web.json_response({**config, "config_path": os.fspath(CONFIG_PATH)})
+    except (ValueError, TypeError) as error:
+        return web.json_response({"error": str(error)}, status=400)
+    except OSError as error:
+        return web.json_response({"error": f"保存 folder_shortcuts.json 失败：{error}"}, status=500)
 
 
 @PromptServer.instance.routes.post("/wzq/folder-shortcuts/open")
@@ -72,7 +146,7 @@ class WZQFolderShortcuts:
     RETURN_TYPES = ()
     FUNCTION = "execute"
     CATEGORY = categories.TOOLS
-    DESCRIPTION = "点击按钮打开本机文件夹；在管理路径中配置按钮，配置随工作流保存。"
+    DESCRIPTION = "点击按钮打开本机文件夹；路径配置加载和保存至插件目录的 folder_shortcuts.json。"
 
     def execute(self):
         return ()

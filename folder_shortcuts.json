@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "name": "输出文件夹",
+      "path": "E:\\AI\\ComfyUI_Z\\ComfyUI\\output"
+    },
+    {
+      "name": "输入素材",
+      "path": "E:\\AI\\ComfyUI_Z\\ComfyUI\\input"
+    },
+    {
+      "name": "模型目录",
+      "path": "E:\\AI\\ComfyUI_Z\\ComfyUI\\models"
+    },
+    {
+      "name": "插件目录",
+      "path": "E:\\AI\\ComfyUI_Z\\ComfyUI\\custom_nodes\\wzq_test_node"
+    },
+    {
+      "name": "dearworld_pic",
+      "path": "D:\\dearworld\\pic"
+    },
+    {
+      "name": "actors",
+      "path": "D:\\dearworld\\pic\\actors"
+    }
+  ]
+}
