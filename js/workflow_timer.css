@@ -1,0 +1,35 @@
+.wzq-workflow-timer {
+    width: 100%; height: 100%; box-sizing: border-box; padding: 18px;
+    background: var(--comfy-menu-bg, #282a30); color: var(--fg-color, #e5e7eb);
+    border-radius: 6px; font: 13px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; gap: 0; overflow: hidden;
+}
+.wzq-workflow-timer * { box-sizing: border-box; }
+.wzq-workflow-timer .wzq-timer-head { display: flex; justify-content: space-between; gap: 8px; }
+.wzq-workflow-timer .wzq-timer-status { display: flex; align-items: center; gap: 7px; }
+.wzq-workflow-timer .wzq-timer-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.wzq-workflow-timer[data-status="running"] .wzq-timer-status { color: #8fb6f2; }
+.wzq-workflow-timer[data-status="done"] .wzq-timer-status { color: #81c9a0; }
+.wzq-workflow-timer[data-status="error"] .wzq-timer-status { color: #e99b9b; }
+.wzq-workflow-timer[data-status="interrupted"] .wzq-timer-status,
+.wzq-workflow-timer[data-status="disconnected"] .wzq-timer-status { color: #e5bb79; }
+.wzq-workflow-timer .wzq-timer-scope,
+.wzq-workflow-timer .wzq-timer-label,
+.wzq-workflow-timer .wzq-timer-details dt,
+.wzq-workflow-timer .wzq-timer-foot { opacity: .72; font-size: 12px; }
+.wzq-workflow-timer .wzq-timer-label { margin-top: 20px; }
+.wzq-workflow-timer .wzq-timer-clock {
+    font: 500 36px/1.4 "Consolas", "Courier New", monospace;
+    font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -1px;
+    padding: 3px 0 17px;
+}
+.wzq-workflow-timer .wzq-timer-fraction { font-size: 24px; opacity: .72; letter-spacing: 0; }
+.wzq-workflow-timer .wzq-timer-details {
+    border-top: 1px solid var(--border-color, #424650); margin: 0;
+    padding: 12px 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px;
+}
+.wzq-workflow-timer .wzq-timer-details dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.wzq-workflow-timer .wzq-timer-foot {
+    border-top: 1px solid var(--border-color, #424650); padding-top: 11px;
+    display: flex; justify-content: space-between; gap: 8px; margin-top: auto;
+}

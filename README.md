@@ -13,7 +13,7 @@ WZQ
 ├── 图像              智能尺寸、交互式裁剪画布、图像缩放、图像切块、遮罩合成、遮罩填孔
 ├── 尺寸与潜空间       Image Size、Size、Empty Latent、Empty Latent (Qwen)
 ├── 文本与工具         提示词管理器、Split SD Generation Data、Check String Empty、Batch Count、Easy Seed、Current Time
-├── 工具              文件夹快捷打开、Reroute（3 个变体）
+├── 工具              工作流计时器、文件夹快捷打开、Reroute（3 个变体）
 ├── 视频              Video Combine V2
 └── MiniMax H3         Prompt、Media Input、Media Output
 ```
@@ -50,12 +50,23 @@ WZQ
 | 文本与工具 | 提示词管理器 | `WZQPromptManager` | 浏览、编辑并保存 `prompts/` 分类提示词，输出当前文本 |
 | 工具 | Reroute (Any) | `myReroute` | 任意类型单路中继 |
 | 工具 | 文件夹快捷打开 | `WZQFolderShortcuts` | 双列自定义路径按钮，点击打开本机文件夹 |
+| 工具 | WZQ 工作流计时器 | `WZQWorkflowTimer` | 无需连线，自动显示整个工作流的执行耗时 |
 | 工具 | Reroute (Any ×3) | `myReroute3` | 任意类型三路中继 |
 | 工具 | Reroute (Model / VAE / CLIP) | `myReroutexxx` | 模型组三路中继 |
 | 视频 | Video Combine V2 (WZQ) | `WZQVideoCombineV2` | 将图像帧合成 GIF/WebP/视频，可合并音频并保留元数据 |
 | MiniMax H3 | MiniMax-H3 Prompt (WZQ) | `WZQMiniMaxH3Prompt` | 富文本提示词编辑，见下文 |
 | MiniMax H3 | MiniMax-H3 Media Input (WZQ) | `WZQMiniMaxH3MediaInput` | 打包图像/视频/音频素材 |
 | MiniMax H3 | MiniMax-H3 Media Output (WZQ) | `WZQMiniMaxH3MediaOutput` | 拆分素材包为多路输出 |
+
+## 工作流计时器
+
+在 `WZQ → 工具` 中添加「WZQ 工作流计时器」，无需连线。点击生成后，任务真正开始执行时
+自动计时，整个工作流完成（含保存图片或视频编码）、失败或中断时停止。排队等待时间不计入。
+节点显示本次耗时、状态、开始/结束时间和上次耗时；连续排队逐次计时，切换工作流后返回可查看结果。
+计时器只显示信息，不参与后端执行，也不会使缓存节点重新生成。
+
+已完成的结果随工作流保存。实时任务关联保留在当前页面会话中，刷新页面后不恢复正在执行的计时；
+连接断开时显示「待确认」，重连后尝试读取本机任务历史确认结果。
 
 ## 文件夹快捷打开
 

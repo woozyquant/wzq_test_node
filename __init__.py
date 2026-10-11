@@ -34,6 +34,7 @@ from .wzq.minimax_h3_prompt import (
 )
 from .wzq.prompt_manager import WZQPromptManager
 from .wzq.folder_shortcuts import WZQFolderShortcuts
+from .wzq.workflow_timer import WZQWorkflowTimer
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
 from .wzq import server as _wzq_server  # noqa: F401
@@ -74,6 +75,7 @@ NODE_CLASS_MAPPINGS = {
     "WZQVideoCombineV2": VideoCombineV2,
     "WZQPromptManager": WZQPromptManager,
     "WZQFolderShortcuts": WZQFolderShortcuts,
+    "WZQWorkflowTimer": WZQWorkflowTimer,
 }
 
 
@@ -96,6 +98,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "myReroute3": "Reroute (Any ×3)",
     "myReroutexxx": "Reroute (Model / VAE / CLIP)",
     "WZQFolderShortcuts": "文件夹快捷打开",
+    "WZQWorkflowTimer": "WZQ 工作流计时器",
 
     # 尺寸与潜空间
     "myImageSizexxx": "Image Size",
