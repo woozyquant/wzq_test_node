@@ -1,6 +1,7 @@
 """Prompt library node and local prompt-file API.
 
-The library lives in ``<custom-node>/prompts``.  Every subdirectory is exposed
+The library directory is configured in ``prompt_manager.json`` and defaults
+to ``<custom-node>/prompts``.  Every subdirectory is exposed
 as a category and supported text files inside it are exposed as saved prompts.
 All path handling is deliberately rooted in that directory so requests cannot
 read or write arbitrary files on the ComfyUI host.
@@ -9,6 +10,7 @@ read or write arbitrary files on the ComfyUI host.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import subprocess
@@ -23,7 +25,28 @@ from server import PromptServer
 from . import categories
 
 
-PROMPTS_ROOT = Path(__file__).resolve().parent.parent / "prompts"
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "prompt_manager.json"
+
+
+def _load_prompt_root() -> Path:
+    if not CONFIG_PATH.exists():
+        CONFIG_PATH.write_text(
+            json.dumps({"prompts_dir": "prompts"}, indent=2) + "\n", encoding="utf-8"
+        )
+    try:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8-sig"))
+    except ValueError as error:
+        raise ValueError(f"prompt_manager.json 不是有效的 JSON：{error}") from error
+    value = config.get("prompts_dir") if isinstance(config, dict) else None
+    if not isinstance(value, str) or not value.strip() or "\0" in value:
+        raise ValueError("prompt_manager.json 的 prompts_dir 必须是非空文件夹路径。")
+    root = Path(os.path.expandvars(os.path.expanduser(value.strip())))
+    if not root.is_absolute():
+        root = CONFIG_PATH.parent / root
+    return root.resolve()
+
+
+PROMPTS_ROOT = _load_prompt_root()
 PROMPT_EXTENSIONS = {".txt", ".md", ".prompt"}
 MAX_PROMPT_BYTES = 2 * 1024 * 1024
 MAX_NAME_LENGTH = 128
@@ -55,7 +78,7 @@ def _safe_path(relative_path: str, *, require_file: bool = False) -> Path:
     try:
         candidate.relative_to(root)
     except ValueError as error:
-        raise ValueError("提示词路径超出了 prompts 目录。") from error
+        raise ValueError("提示词路径超出了配置的提示词目录。") from error
 
     if require_file and candidate.suffix.lower() not in PROMPT_EXTENSIONS:
         raise ValueError("仅支持 .txt、.md 和 .prompt 文件。")
@@ -410,7 +433,7 @@ async def prompt_manager_rename(request):
 
 
 class WZQPromptManager:
-    """Edit a prompt and reuse text snippets stored under ``prompts/``."""
+    """Edit a prompt and reuse text snippets from the configured library."""
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -431,7 +454,7 @@ class WZQPromptManager:
     RETURN_NAMES = ("提示词",)
     FUNCTION = "output_prompt"
     CATEGORY = categories.TEXT
-    DESCRIPTION = "管理 prompts 子目录中的提示词文件，并输出当前编辑内容。"
+    DESCRIPTION = "管理 prompt_manager.json 配置目录中的提示词文件，并输出当前编辑内容。"
     OUTPUT_TOOLTIPS = ("当前提示词文本。",)
 
     def output_prompt(self, prompt):

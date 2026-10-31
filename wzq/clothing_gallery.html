@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <!-- Adapted from the user-supplied offline clothing gallery; see THIRD_PARTY_NOTICES.md. -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>wzq-clothing-gallery · 服装图库</title>
+  <style>
+    :root {
+      --bg: #111413;
+      --bg-soft: #181c1a;
+      --panel: #202522;
+      --panel-2: #282e2a;
+      --line: #353d38;
+      --line-strong: #4a554e;
+      --text: #f1f2ec;
+      --muted: #b1b8b1;
+      --dim: #7f8981;
+      --accent: #f0b36b;
+      --accent-strong: #ffc87f;
+      --teal: #76d6c5;
+      --danger: #ff8d85;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
+      --radius: 12px;
+      --font: "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-height: 100%; background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(900px 500px at 8% -12%, rgba(118, 214, 197, 0.08), transparent 65%),
+        radial-gradient(700px 420px at 100% 0, rgba(240, 179, 107, 0.07), transparent 60%),
+        var(--bg);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select, a { font: inherit; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, input:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 3px;
+    }
+
+    .shell {
+      width: min(1680px, 100%);
+      margin: 0 auto;
+      padding-inline: clamp(16px, 3.6vw, 52px);
+    }
+
+    .hero {
+      padding-block: clamp(34px, 5vw, 64px) 26px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 28px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 5.3vw, 72px);
+      font-weight: 760;
+      letter-spacing: -0.025em;
+      line-height: 1.02;
+    }
+
+    .hero-copy {
+      max-width: 760px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: clamp(14px, 1.4vw, 17px);
+      line-height: 1.75;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .plain-button,
+    .primary-button,
+    .secondary-button {
+      min-height: 46px;
+      border-radius: 10px;
+      padding: 0 16px;
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .plain-button:hover,
+    .secondary-button:hover { background: var(--panel-2); border-color: #627168; }
+    .primary-button {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #21170c;
+    }
+    .primary-button:hover { background: var(--accent-strong); }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 24px;
+      margin-top: 26px;
+      color: var(--dim);
+      font-size: 13px;
+    }
+    .stats strong { color: var(--text); font-size: 18px; margin-right: 5px; }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      border-bottom: 1px solid var(--line);
+      background: rgba(17, 20, 19, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .toolbar-inner { padding-block: 12px; }
+    .category-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 1px 6px;
+      scrollbar-width: none;
+    }
+    .category-row::-webkit-scrollbar { display: none; }
+    .category-button {
+      flex: 0 0 auto;
+      min-height: 44px;
+      padding: 0 15px;
+      border-radius: 999px;
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .category-button b {
+      margin-left: 8px;
+      color: var(--dim);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .category-button:hover { color: var(--text); border-color: #627168; }
+    .category-button[aria-selected="true"] {
+      background: var(--text);
+      color: #151915;
+      border-color: var(--text);
+    }
+    .category-button[aria-selected="true"] b { color: #505951; }
+
+    .search-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 5px;
+    }
+    .search-box {
+      position: relative;
+      flex: 1 1 380px;
+      min-width: 0;
+    }
+    .search-box svg {
+      position: absolute;
+      top: 50%;
+      left: 15px;
+      width: 18px;
+      height: 18px;
+      transform: translateY(-50%);
+      color: var(--dim);
+      pointer-events: none;
+    }
+    .search-box input {
+      width: 100%;
+      min-height: 48px;
+      padding: 0 16px 0 45px;
+      border-radius: 10px;
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--text);
+      outline: none;
+    }
+    .search-box input::placeholder { color: var(--dim); }
+    .search-box input:focus { border-color: var(--teal); }
+    .result-count {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    main { padding-block: 26px 72px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .card:hover, .card:focus-visible {
+      transform: translateY(-3px);
+      border-color: #607067;
+      box-shadow: var(--shadow);
+    }
+    .thumb {
+      position: relative;
+      aspect-ratio: 2 / 3;
+      overflow: hidden;
+      background: #e7e8e3;
+    }
+    .thumb img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .thumb::after {
+      content: "图片缺失";
+      display: none;
+      position: absolute;
+      inset: 0;
+      place-items: center;
+      color: #6f5146;
+      background: #f1e7df;
+      font-size: 13px;
+    }
+    .thumb.failed::after { display: grid; }
+    .thumb.failed img { display: none; }
+    .card-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(17, 20, 19, 0.82);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      backdrop-filter: blur(6px);
+    }
+    .card-meta { padding: 13px 14px 15px; }
+    .card-topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 9px;
+    }
+    .card-id {
+      font-family: "Cascadia Mono", Consolas, monospace;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .card-category { color: var(--teal); font-size: 12px; font-weight: 700; }
+    .tag-line {
+      min-height: 24px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .more-wrap { display: grid; place-items: center; margin-top: 30px; }
+    .more-button {
+      min-width: min(330px, 100%);
+      min-height: 50px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 750;
+    }
+    .more-button:hover { border-color: var(--teal); }
+    .more-button[hidden] { display: none; }
+
+    .empty {
+      grid-column: 1 / -1;
+      min-height: 320px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius);
+      color: var(--dim);
+      text-align: center;
+      padding: 30px;
+    }
+    .empty strong { display: block; color: var(--text); font-size: 20px; margin-bottom: 8px; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      background: rgba(3, 5, 4, 0.88);
+      backdrop-filter: blur(8px);
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+      position: relative;
+      width: min(1240px, 100%);
+      max-height: calc(100vh - 28px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 18px;
+      padding: 16px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--bg-soft);
+      box-shadow: var(--shadow);
+    }
+    .image-stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      height: min(82vh, 920px);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #e7e8e3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-stage img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .nav-button {
+      position: absolute;
+      top: 50%;
+      width: 48px;
+      height: 48px;
+      transform: translateY(-50%);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 50%;
+      background: rgba(17, 20, 19, 0.78);
+      color: #fff;
+      cursor: pointer;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .nav-button:hover { background: rgba(17, 20, 19, 0.95); }
+    .nav-button.prev { left: 12px; }
+    .nav-button.next { right: 12px; }
+    .close-button {
+      position: absolute;
+      z-index: 2;
+      top: 16px;
+      right: 16px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid #66726a;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 24px;
+    }
+    .detail {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 2px 4px 2px 0;
+    }
+    .detail-id { color: var(--dim); font: 700 12px/1.4 "Cascadia Mono", Consolas, monospace; }
+    .detail h2 { margin: 5px 0 6px; font-size: 26px; line-height: 1.25; }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 18px; }
+    .pill {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--panel);
+      font-size: 12px;
+    }
+    .section-label {
+      margin: 13px 0 8px;
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #2b332e;
+      color: #d4dad4;
+      font-size: 12px;
+    }
+    .prompt-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 9px;
+    }
+    .lang-switch {
+      display: inline-flex;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .lang-switch button {
+      min-height: 32px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .lang-switch button[aria-pressed="true"] { background: var(--text); color: #171a17; }
+    .prompt {
+      margin: 0;
+      padding: 12px;
+      max-height: 184px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #151917;
+      color: #d6dcd7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 12px/1.7 var(--font);
+    }
+    .prompt-note { margin: 8px 0 0; color: var(--dim); font-size: 11px; line-height: 1.55; }
+    .detail-actions { display: grid; gap: 9px; margin-top: auto; padding-top: 18px; }
+    .detail-actions .primary-button,
+    .detail-actions .secondary-button { width: 100%; }
+    .key-hint { margin-top: 10px; color: var(--dim); font-size: 11px; text-align: center; }
+
+    .info-sheet {
+      position: fixed;
+      z-index: 110;
+      top: 18px;
+      right: 18px;
+      width: min(480px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      overflow-y: auto;
+      padding: 22px;
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      background: #1d221f;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    .info-sheet.open { display: block; }
+    .info-sheet h2 { margin: 0 44px 14px 0; font-size: 22px; }
+    .info-sheet h3 { margin: 18px 0 7px; color: var(--accent); font-size: 14px; }
+    .info-sheet p, .info-sheet li { color: var(--muted); font-size: 13px; line-height: 1.75; }
+    .info-sheet ul { padding-left: 1.25em; }
+    .info-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 21px;
+    }
+
+    .toast {
+      position: fixed;
+      z-index: 200;
+      left: 50%;
+      bottom: 24px;
+      transform: translate(-50%, 20px);
+      padding: 11px 16px;
+      border: 1px solid #637069;
+      border-radius: 9px;
+      background: #242b27;
+      color: #fff;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 900px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .hero-actions { justify-content: flex-start; }
+      .modal-box { grid-template-columns: 1fr; overflow-y: auto; }
+      .image-stage { height: min(62vh, 720px); }
+      .detail { overflow: visible; }
+      .detail-actions { margin-top: 0; }
+    }
+
+    @media (max-width: 560px) {
+      .hero { padding-top: 26px; }
+      h1 { font-size: 38px; line-height: 1.06; }
+      .hero-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+      .search-row { align-items: stretch; flex-direction: column; gap: 8px; }
+      .search-box { flex: 0 0 auto; width: 100%; }
+      .result-count { align-self: flex-end; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .card-meta { padding: 10px; }
+      .card-topline { align-items: flex-start; flex-direction: column; gap: 3px; }
+      .tag-line { font-size: 12px; }
+      .modal { padding: 0; }
+      .modal-box { width: 100%; max-height: 100vh; min-height: 100vh; border: 0; border-radius: 0; padding: 10px; }
+      .image-stage { height: 56vh; }
+      .close-button { position: fixed; top: 12px; right: 12px; }
+      .detail h2 { font-size: 22px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="shell">
+      <div class="hero-grid">
+        <div>
+          <p class="eyebrow">WZQ · Local Costume Archive</p>
+          <h1>AI 服装素材库</h1>
+          <p class="hero-copy">纯服装参考图，无人物。按中文标签、英文关键词或编号搜索，选择服装后点击「使用此服装」，将原图写回 ComfyUI 节点。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="plain-button" id="guideButton" type="button">使用说明</button>
+          <a class="plain-button" href="catalog" target="_blank" rel="noreferrer">查看 JSON</a>
+        </div>
+      </div>
+      <div class="stats">
+        <span><strong id="statTotal">0</strong>套服装</span>
+        <span><strong id="statCategories">0</strong>个分类</span>
+        <span><strong>3</strong>种图片规格</span>
+        <span><strong>100%</strong>本地离线</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="shell toolbar-inner">
+      <div class="category-row" id="categories" role="tablist" aria-label="服装分类"></div>
+      <div class="search-row">
+        <label class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-3.5-3.5"></path>
+          </svg>
+          <input id="searchInput" type="search" autocomplete="off" placeholder="搜索编号、中文标签或英文关键词，例如：蕾丝、连衣裙、SPR-0001">
+        </label>
+        <span class="result-count" id="resultCount">0 套</span>
+      </div>
+    </div>
+  </div>
+
+  <main class="shell">
+    <div class="grid" id="grid"></div>
+    <div class="more-wrap">
+      <button class="more-button" id="moreButton" type="button" hidden>加载更多</button>
+    </div>
+  </main>
+
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <button class="close-button" id="closeButton" type="button" aria-label="关闭">×</button>
+      <div class="image-stage">
+        <button class="nav-button prev" id="prevButton" type="button" aria-label="上一张">‹</button>
+        <img id="detailImage" alt="">
+        <button class="nav-button next" id="nextButton" type="button" aria-label="下一张">›</button>
+      </div>
+      <aside class="detail">
+        <div class="detail-id" id="detailId"></div>
+        <h2 id="detailTitle"></h2>
+        <div class="detail-meta" id="detailMeta"></div>
+        <div class="section-label">中文标签</div>
+        <div class="tag-cloud" id="detailTags"></div>
+        <div class="section-label">AI 参考提示词</div>
+        <div class="prompt-toolbar">
+          <div class="lang-switch" aria-label="提示词语言">
+            <button type="button" data-prompt-lang="zh" aria-pressed="true">中文</button>
+            <button type="button" data-prompt-lang="en" aria-pressed="false">English</button>
+          </div>
+          <button class="secondary-button" id="copyPromptButton" type="button">复制提示词</button>
+        </div>
+        <pre class="prompt" id="promptText"></pre>
+        <p class="prompt-note" id="promptNote"></p>
+        <div class="detail-actions">
+          <button class="primary-button" id="useClothing" type="button" disabled>使用此服装 → ComfyUI</button>
+          <a class="primary-button" id="downloadButton" href="#" download>下载原图</a>
+          <a class="secondary-button" id="openDataButton" href="catalog" target="_blank" rel="noreferrer">查看此服装数据</a>
+        </div>
+        <div class="key-hint">键盘：← / → 切换，Esc 关闭</div>
+      </aside>
+    </div>
+  </div>
+
+  <aside class="info-sheet" id="infoSheet" aria-hidden="true">
+    <button class="info-close" id="infoCloseButton" type="button" aria-label="关闭">×</button>
+    <h2>使用说明</h2>
+    <h3>在 ComfyUI 中使用</h3>
+    <p>选择分类或输入关键词，点击服装卡片查看大图，再点击「使用此服装 → ComfyUI」。选择会随工作流保存，点击 ComfyUI 的运行按钮后输出原图。</p>
+    <h3>数据读取</h3>
+    <p>其他软件建议读取 <code>data/catalog.json</code>。每套服装都有稳定编号、分类、中文标签、英文关键词、提示词和三种图片路径。</p>
+    <h3>图片规格</h3>
+    <ul>
+      <li><code>assets/original/</code>：高清 PNG 原图。</li>
+      <li><code>assets/display/</code>：网页展示用 WebP。</li>
+      <li><code>assets/thumb/</code>：列表缩略图 WebP。</li>
+    </ul>
+    <h3>提示词说明</h3>
+    <p>原站没有公开完整生成提示词。这里的中文标签和提示词是根据公开英文服装关键词整理，不是原作者原始提示词。</p>
+    <h3>来源与使用范围</h3>
+    <p>素材来源：<a href="https://ai-costume-gallery.pages.dev/" target="_blank" rel="noreferrer">AI Costume Gallery</a>。图片与数据沿用外部素材库的来源说明。</p>
+    <p>原站说明图片可用于作品制作、商用、编辑和参考；但禁止将图片数据本身再配发、转载或转售。发布前请按自己的软件用途确认边界。</p>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (async () => {
+      "use strict";
+
+      const bridge = new URLSearchParams(location.search);
+      const session = bridge.get("session");
+      const send = (type, clothing_id) => window.parent.postMessage({type, session, clothing_id}, location.origin);
+      let requestedClothing = bridge.get("clothing_id");
+      let library;
+      window.addEventListener("message", event => {
+        if (event.source !== window.parent || event.origin !== location.origin || event.data?.session !== session) return;
+        if (event.data.type === "wzq-clothing-gallery-open" && typeof event.data.clothing_id === "string") {
+          requestedClothing = event.data.clothing_id;
+          if (library) openSelectedClothing(requestedClothing);
+        }
+      });
+      try {
+        const response = await fetch("catalog");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "服装目录加载失败");
+        library = data;
+      } catch (error) {
+        document.getElementById("grid").textContent = error.message;
+        return;
+      }
+
+      const pageSize = 60;
+      const state = {
+        category: "all",
+        query: "",
+        visibleCount: pageSize,
+        current: 0,
+        currentView: [],
+        promptLang: "zh",
+      };
+
+      const grid = document.getElementById("grid");
+      const categories = document.getElementById("categories");
+      const searchInput = document.getElementById("searchInput");
+      const resultCount = document.getElementById("resultCount");
+      const moreButton = document.getElementById("moreButton");
+      const modal = document.getElementById("modal");
+      const detailImage = document.getElementById("detailImage");
+      const detailId = document.getElementById("detailId");
+      const detailTitle = document.getElementById("detailTitle");
+      const detailMeta = document.getElementById("detailMeta");
+      const detailTags = document.getElementById("detailTags");
+      const promptText = document.getElementById("promptText");
+      const promptNote = document.getElementById("promptNote");
+      const downloadButton = document.getElementById("downloadButton");
+      const copyPromptButton = document.getElementById("copyPromptButton");
+      const infoSheet = document.getElementById("infoSheet");
+      const toast = document.getElementById("toast");
+      let toastTimer;
+      let lastFocused = null;
+      let detailToken = 0;
+      let lastOpenedClothing = null;
+      const useClothing = document.getElementById("useClothing");
+      useClothing.addEventListener("click", () => {
+        const item = state.currentView[state.current];
+        if (item && !useClothing.disabled) send("wzq-clothing-gallery-select", item.id);
+      });
+
+      document.getElementById("statTotal").textContent = library.total.toLocaleString("zh-CN");
+      document.getElementById("statCategories").textContent = library.categories.length;
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function normalized(item) {
+        return [
+          item.id,
+          item.category_zh,
+          item.category_en,
+          ...item.keywords_en,
+          ...item.tags_zh,
+          ...item.tags_en,
+        ].join(" ").toLowerCase();
+      }
+
+      for (const item of library.items) {
+        item._search = normalized(item);
+      }
+
+      function buildCategories() {
+        const buttons = [
+          { id: "all", name_zh: "全部", count: library.total },
+          ...library.categories,
+        ];
+        categories.innerHTML = buttons
+          .map(
+            (category) =>
+              `<button class="category-button" type="button" role="tab" data-category="${escapeHtml(category.id)}" ` +
+              `aria-selected="${state.category === category.id}">${escapeHtml(category.name_zh)}` +
+              `<b>${Number(category.count).toLocaleString("zh-CN")}</b></button>`,
+          )
+          .join("");
+      }
+
+      function filterItems() {
+        const words = state.query.split(/\s+/).filter(Boolean);
+        return library.items.filter((item) => {
+          if (state.category !== "all" && item.category_id !== state.category) return false;
+          return words.every((word) => item._search.includes(word));
+        });
+      }
+
+      function cardMarkup(item, index) {
+        const visibleTags = [...item.tags_zh.slice(0, 3), ...item.system_tags_zh.slice(0, 1)];
+        return `<article class="card" tabindex="0" role="button" data-index="${index}" aria-label="${escapeHtml(item.id)} ${escapeHtml(item.category_zh)}">
+          <div class="thumb">
+            <img loading="lazy" decoding="async" src="${escapeHtml(item.files.thumb)}" alt="${escapeHtml(item.id)} 服装缩略图" onerror="this.closest('.thumb').classList.add('failed')">
+            <span class="card-badge">${escapeHtml(item.category_zh)}</span>
+          </div>
+          <div class="card-meta">
+            <div class="card-topline">
+              <span class="card-id">${escapeHtml(item.id)}</span>
+              <span class="card-category">${escapeHtml(item.category_zh)}</span>
+            </div>
+            <div class="tag-line">${escapeHtml(visibleTags.join(" · "))}</div>
+          </div>
+        </article>`;
+      }
+
+      function render(resetScroll = false) {
+        state.currentView = filterItems();
+        state.visibleCount = Math.min(state.visibleCount, state.currentView.length || pageSize);
+        const visible = state.currentView.slice(0, state.visibleCount);
+        resultCount.textContent = `${state.currentView.length.toLocaleString("zh-CN")} 套`;
+        if (!visible.length) {
+          grid.innerHTML =
+            '<div class="empty"><div><strong>没有找到匹配结果</strong>换一个中文标签、英文关键词或分类试试。</div></div>';
+        } else {
+          grid.innerHTML = visible.map(cardMarkup).join("");
+        }
+        const remaining = state.currentView.length - state.visibleCount;
+        moreButton.hidden = remaining <= 0;
+        moreButton.textContent = `加载更多（剩余 ${remaining.toLocaleString("zh-CN")} 套）`;
+        if (resetScroll) {
+          window.scrollTo({ top: document.querySelector(".toolbar").offsetTop, behavior: "auto" });
+        }
+      }
+
+      function setCategory(categoryId) {
+        state.category = categoryId;
+        state.visibleCount = pageSize;
+        buildCategories();
+        render(true);
+      }
+
+      function loadMore() {
+        if (state.visibleCount >= state.currentView.length) return;
+        state.visibleCount = Math.min(
+          state.visibleCount + pageSize,
+          state.currentView.length,
+        );
+        const start = grid.querySelectorAll(".card").length;
+        grid.insertAdjacentHTML(
+          "beforeend",
+          state.currentView
+            .slice(start, state.visibleCount)
+            .map((item, index) => cardMarkup(item, start + index))
+            .join(""),
+        );
+        const remaining = state.currentView.length - state.visibleCount;
+        moreButton.hidden = remaining <= 0;
+        moreButton.textContent = `加载更多（剩余 ${remaining.toLocaleString("zh-CN")} 套）`;
+      }
+
+      function updatePrompt() {
+        const item = state.currentView[state.current];
+        if (!item) return;
+        const chinese = state.promptLang === "zh";
+        promptText.textContent = (chinese ? item.prompt_zh : item.prompt_en) ?? "正在加载参考提示词…";
+        promptNote.textContent = item.prompt_zh === undefined ? "" : chinese
+          ? `${item.prompt_note_zh} 反向提示词：${item.negative_prompt_zh}`
+          : `Generated from the public English keywords, not the original creator's prompt. Negative prompt: ${item.negative_prompt_en}`;
+        document.querySelectorAll("[data-prompt-lang]").forEach((button) => {
+          button.setAttribute(
+            "aria-pressed",
+            String(button.dataset.promptLang === state.promptLang),
+          );
+        });
+      }
+
+      function showCurrent() {
+        const item = state.currentView[state.current];
+        if (!item) return;
+        const token = ++detailToken;
+        useClothing.disabled = true;
+        useClothing.textContent = "正在加载服装…";
+        detailImage.src = item.files.display;
+        detailImage.alt = `${item.id} ${item.category_zh}服装`;
+        detailId.textContent = item.id;
+        detailTitle.textContent = `${item.category_zh}服装参考`;
+        detailMeta.innerHTML = [
+          item.category_zh,
+          `${item.tags_zh.length} 个服装标签`,
+          "无人物",
+          "2:3 竖版",
+        ]
+          .map((text) => `<span class="pill">${escapeHtml(text)}</span>`)
+          .join("");
+        detailTags.innerHTML = item.tags_zh
+          .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+          .join("");
+        downloadButton.href = item.files.original;
+        downloadButton.setAttribute("download", `${item.id}.png`);
+        document.getElementById("openDataButton").href = `clothing/${encodeURIComponent(item.id)}`;
+        updatePrompt();
+        const details = item.prompt_zh !== undefined ? Promise.resolve(item) : (item._detailsPromise ||= fetch(`clothing/${encodeURIComponent(item.id)}`)
+          .then(async response => {
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "服装详情加载失败");
+            return data;
+          }));
+        details.then(data => {
+          Object.assign(item, data);
+          if (token !== detailToken) return;
+          updatePrompt();
+          detailMeta.lastElementChild.textContent = `${item.width} × ${item.height} PNG`;
+          useClothing.disabled = !session || window.parent === window;
+          useClothing.textContent = "使用此服装 → ComfyUI";
+        }).catch(error => {
+          item._detailsPromise = null;
+          if (token !== detailToken) return;
+          useClothing.disabled = true;
+          useClothing.textContent = "此服装不可用";
+          promptText.textContent = error.message;
+          promptNote.textContent = "";
+        });
+      }
+
+      function openModal(index) {
+        state.current = index;
+        lastFocused = document.activeElement;
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        showCurrent();
+        document.getElementById("closeButton").focus();
+      }
+
+      function closeModal() {
+        detailToken++;
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+        lastFocused?.focus?.();
+      }
+
+      function stepModal(delta) {
+        const next = state.current + delta;
+        if (next < 0 || next >= state.currentView.length) return;
+        state.current = next;
+        if (state.current >= state.visibleCount) loadMore();
+        showCurrent();
+      }
+
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add("show");
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+      }
+
+      async function copyText(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch {
+          const textarea = document.createElement("textarea");
+          textarea.value = text;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          const copied = document.execCommand("copy");
+          textarea.remove();
+          return copied;
+        }
+      }
+
+      categories.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-category]");
+        if (button) setCategory(button.dataset.category);
+      });
+
+      let debounceTimer;
+      searchInput.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          state.query = searchInput.value.trim().toLowerCase();
+          state.visibleCount = pageSize;
+          render(false);
+        }, 120);
+      });
+
+      grid.addEventListener("click", (event) => {
+        const card = event.target.closest(".card");
+        if (card) openModal(Number(card.dataset.index));
+      });
+      grid.addEventListener("keydown", (event) => {
+        const card = event.target.closest(".card");
+        if (card && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          openModal(Number(card.dataset.index));
+        }
+      });
+
+      moreButton.addEventListener("click", loadMore);
+      document.getElementById("closeButton").addEventListener("click", closeModal);
+      document.getElementById("prevButton").addEventListener("click", () => stepModal(-1));
+      document.getElementById("nextButton").addEventListener("click", () => stepModal(1));
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) closeModal();
+      });
+      document.querySelectorAll("[data-prompt-lang]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.promptLang = button.dataset.promptLang;
+          updatePrompt();
+        });
+      });
+      copyPromptButton.addEventListener("click", async () => {
+        const copied = await copyText(promptText.textContent);
+        copyPromptButton.textContent = copied ? "已复制" : "复制失败";
+        showToast(copied ? "提示词已复制" : "复制失败，请手动选择文本");
+        setTimeout(() => {
+          copyPromptButton.textContent = "复制提示词";
+        }, 1500);
+      });
+
+      const guideButton = document.getElementById("guideButton");
+      function setInfoOpen(open) {
+        infoSheet.classList.toggle("open", open);
+        infoSheet.setAttribute("aria-hidden", String(!open));
+        if (open) document.getElementById("infoCloseButton").focus();
+        else guideButton.focus();
+      }
+      guideButton.addEventListener("click", () => setInfoOpen(true));
+      document.getElementById("infoCloseButton").addEventListener("click", () => setInfoOpen(false));
+      infoSheet.addEventListener("click", (event) => {
+        if (event.target === infoSheet) setInfoOpen(false);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          if (modal.classList.contains("open")) closeModal();
+          else if (infoSheet.classList.contains("open")) setInfoOpen(false);
+          else send("wzq-clothing-gallery-close");
+          return;
+        }
+        if (!modal.classList.contains("open")) return;
+        if (event.key === "ArrowLeft") stepModal(-1);
+        if (event.key === "ArrowRight") stepModal(1);
+      });
+
+      function openSelectedClothing(clothingId) {
+        if (clothingId === lastOpenedClothing) return;
+        let index = state.currentView.findIndex(item => item.id === clothingId);
+        if (index < 0 && library.items.some(item => item.id === clothingId)) {
+          state.category = "all";
+          state.query = "";
+          state.visibleCount = pageSize;
+          searchInput.value = "";
+          buildCategories();
+          render(false);
+          index = state.currentView.findIndex(item => item.id === clothingId);
+        }
+        if (index >= 0) {
+          openModal(index);
+          lastOpenedClothing = clothingId;
+        }
+      }
+      buildCategories();
+      render(false);
+      openSelectedClothing(requestedClothing);
+    })();
+  </script>
+</body>
+</html>

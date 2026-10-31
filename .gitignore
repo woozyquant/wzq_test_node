@@ -2,3 +2,9 @@ __pycache__
 
 # Local folder shortcut preferences, generated on first use.
 /folder_shortcuts.json
+
+# Local prompt library, including user text and temporary files.
+/prompts/
+
+# Machine-specific prompt library location.
+/prompt_manager.json

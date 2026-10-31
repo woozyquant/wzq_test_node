@@ -35,6 +35,8 @@ from .wzq.minimax_h3_prompt import (
 from .wzq.prompt_manager import WZQPromptManager
 from .wzq.folder_shortcuts import WZQFolderShortcuts
 from .wzq.workflow_timer import WZQWorkflowTimer
+from .wzq.pose_gallery import WZQPoseGallery
+from .wzq.clothing_gallery import WZQClothingGallery
 
 # 导入服务端路由模块，注册 /wzq/api/lora_size 等接口（模块级装饰器在此执行）
 from .wzq import server as _wzq_server  # noqa: F401
@@ -76,6 +78,8 @@ NODE_CLASS_MAPPINGS = {
     "WZQPromptManager": WZQPromptManager,
     "WZQFolderShortcuts": WZQFolderShortcuts,
     "WZQWorkflowTimer": WZQWorkflowTimer,
+    "wzq-pose-gallery": WZQPoseGallery,
+    "wzq-clothing-gallery": WZQClothingGallery,
 }
 
 
@@ -129,6 +133,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WZQMiniMaxH3MediaOutput": "MiniMax-H3 Media Output (WZQ)",
     "WZQVideoCombineV2": "Video Combine V2 (WZQ)",
     "WZQPromptManager": "提示词管理器",
+    "wzq-pose-gallery": "wzq-pose-gallery 姿势图库",
+    "wzq-clothing-gallery": "wzq-clothing-gallery 服装图库",
 }
 
 WEB_DIRECTORY = "./js"

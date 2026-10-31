@@ -270,7 +270,7 @@ class PromptManagerPanel {
     async refresh(preferredPath = this.selectedPath, forceRefresh = false) {
         const serial = ++this.requestSerial;
         this.refreshButton.classList.add("loading");
-        this.setStatus("正在读取 prompts 目录...");
+        this.setStatus("正在读取提示词目录...");
         try {
             const categories = await getSharedLibrary(forceRefresh);
             if (serial !== this.requestSerial) return;
@@ -279,7 +279,7 @@ class PromptManagerPanel {
             this.selectedPath = preferredPath || "";
             this.renderTree();
             this.updateRenameButton();
-            this.setStatus(this.categories.length ? "" : "prompts 目录下还没有分类文件夹");
+            this.setStatus(this.categories.length ? "" : "提示词目录下还没有分类文件夹");
         } catch (error) {
             if (serial === this.requestSerial) this.setStatus(error.message, "error");
         } finally {
@@ -510,7 +510,7 @@ class PromptManagerPanel {
             return;
         }
         if (!this.categorySelect.options.length) {
-            this.setStatus("请先在 prompts 目录中创建分类文件夹", "error");
+            this.setStatus("请先在提示词目录中创建分类文件夹", "error");
             return;
         }
 

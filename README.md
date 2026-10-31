@@ -96,15 +96,34 @@ JSON 格式（Windows 路径也可用 `/`，使用 `\` 时需写成 `\\`）：
 
 ## 提示词管理器
 
-节点左侧读取插件根目录下的 `prompts/` 文件夹：每个子文件夹会显示为分类，
+节点左侧读取配置的提示词文件夹（默认是插件根目录下的 `prompts/`）：每个子文件夹会显示为分类，
 其中的 `.txt`、`.md` 和 `.prompt` 文件会显示为提示词条目。单击条目会把 UTF-8
 文本载入右侧编辑框；填写名称、选择按钮后的分类，可用“添加到提示词列表”保存为文件。
 选中已有条目并修改名称后，可用“改名”直接重命名文件。同名文件不会静默覆盖；
 保存时前端会先请求确认，改名时则会提示名称冲突。节点输出始终是右侧编辑框当前的文本。
 载入、保存或改名后，点击底部状态栏显示的提示词路径，可在运行 ComfyUI 的电脑上打开该文件所在文件夹。
 
-仓库默认提供空的 `prompts/通用/` 分类；也可以直接在 `prompts/` 下创建更多子文件夹，
-再点击节点左上角的刷新按钮载入。
+路径配置保存在插件根目录的 `prompt_manager.json`，首次启动时会自动生成默认配置。
+该文件已加入 `.gitignore`，每台电脑独立配置；仓库提供 `prompt_manager.example.json` 作为模板。
+要使用绝对路径，修改本地配置后重启 ComfyUI：
+
+```json
+{
+  "prompts_dir": "D:/MyPrompts"
+}
+```
+
+`prompts_dir` 也支持相对路径（以插件根目录为基准）、`~` 和环境变量。
+默认值为 `"prompts"`，换电脑且没有本地配置时会使用此默认值，不依赖其它电脑的盘符。
+目录不存在时会自动创建；无权限、配置错误或路径指向文件时会报错，不会自动切换到其它目录。
+修改路径不会自动迁移提示词，已有文件可自行复制到新目录。
+
+默认的 `prompts/` 是本地数据目录，已从 Git 跟踪中移除并加入 `.gitignore`；已有文件会保留在本地，
+后续新增、编辑的提示词默认不会进入提交。仓库仅在 `examples/prompts/` 中提供不含个人内容的示例。
+首次使用可将 `examples/prompts/通用/` 复制到 `prompts/通用/`，也可以直接在 `prompts/` 下创建分类子文件夹，
+再点击节点左上角的刷新按钮载入。个人内容请保存在 `prompts/`，不要写入示例目录。
+自定义目录建议放在仓库外；如果放在仓库内的其它位置，也需要自行添加对应的忽略规则。
+取消跟踪不会清除已有提交中的历史数据。
 
 ## wzq_image_out
 
@@ -182,3 +201,39 @@ conditioning、latent 或 VAE 输出。输出包括 `final_prompt`（`STRING`）
 
 提示词优化器的本地视觉模型模式需要安装 `requirements.txt` 中的可选推理依赖。
 相关移植文件的第三方许可信息见 `THIRD_PARTY_NOTICES.md`。
+
+## wzq-pose-gallery 姿势图库
+
+重启 ComfyUI、刷新浏览器后，在 `WZQ → 图像` 添加 `wzq-pose-gallery 姿势图库`。
+点击「浏览姿势图库」，按中文名称、编号或 ID 搜索，按体系、动作和视角筛选。
+支持姿势分组、逐张浏览、多视角大图及中英文参考提示词；页面沿用本地素材库的
+`index.html`。在大图中点击「使用此姿势 → ComfyUI」，选择会写回节点并随工作流保存。
+节点即时预览原图，运行后输出 `image`、`width`、`height`、`pose_id` 和中文 `description`。
+
+默认直接读取 `E:\AI2027\素材库离线版带网页预览\AI姿势素材库_离线版`，不复制素材。
+迁移目录时，可在启动 ComfyUI 前设置环境变量 `WZQ_POSE_GALLERY_LIBRARY`，
+新目录需包含 `data/catalog.json`、`img/` 和 `thumbs/`。图库加载或图片缺失会显示具体错误。
+目录按索引文件修改时间缓存，不在浏览时扫描全库文件；提示词在打开大图时按需加载。
+关闭后重新打开会复用页面及筛选状态。图片按实际访问校验，缩略图缺失时使用已有原图预览。
+更新素材索引后刷新浏览器即可加载新列表。
+图库选择不会自动执行工作流。输出图片为原始尺寸、RGB、白底的 ComfyUI `IMAGE`。
+
+验证：使用 ComfyUI 的 Python 执行 `python -m unittest discover -s tests -p test_pose_gallery.py -v`。
+页面复用与写回测试：`node --test tests/test_pose_gallery.mjs`。
+图片和数据继续使用外部素材库自身的来源与使用条款；页面改编许可见 `THIRD_PARTY_NOTICES.md`。
+
+## wzq-clothing-gallery 服装图库
+
+在 `WZQ → 图像` 添加 `wzq-clothing-gallery 服装图库`，点击「浏览服装图库」，
+按分类、中文标签、英文关键词或编号搜索，查看大图及中英文提示词，点击「使用此服装 → ComfyUI」。
+节点预览所选原图，选择随工作流保存；运行后输出 `image`、`width`、`height`、`clothing_id`、`description`。
+图片保持原始尺寸，转换为 RGB 白底的 ComfyUI `IMAGE`。
+
+默认直接读取 `E:\AI2027\素材库离线版带网页预览\AI服装素材库_离线版`。
+换电脑时可设置用户环境变量 `WZQ_CLOTHING_GALLERY_LIBRARY`，指向包含 `data/catalog.json`
+和 `assets/` 的图库根目录，再完全退出并重新打开 ComfyUI 及启动器。
+选择页沿用本地 `index.html`，使用缓存索引、按需详情和 WebP 缩略图；关闭后复用页面及筛选状态。
+修改素材索引后刷新浏览器加载新列表。
+
+验证：`python -m unittest discover -s tests -p test_clothing_gallery.py -v`。
+两种图库共用前端的回归测试：`node --test tests/test_pose_gallery.mjs`。
