@@ -40,10 +40,10 @@ const LocalLoraOnlyGalleryNode = {
     currentPage: 1,
     totalPages: 1,
     
-    async getLoras(filter_tag = "", mode = "OR", folder = "", page = 1, selected_loras = [], name_filter = "") {
+    async getLoras(filter_tag = "", mode = "OR", folder = "", page = 1, selected_loras = [], name_filter = "", sort_order = "name") {
         this.isLoading = true;
         try {
-            let url = `/localloragallery/get_loras?filter_tag=${encodeURIComponent(filter_tag)}&mode=${mode}&folder=${encodeURIComponent(folder)}&page=${page}&name_filter=${encodeURIComponent(name_filter)}`;
+            let url = `/wzq/localloragallery/get_loras?filter_tag=${encodeURIComponent(filter_tag)}&mode=${mode}&folder=${encodeURIComponent(folder)}&page=${page}&name_filter=${encodeURIComponent(name_filter)}&sort_order=${encodeURIComponent(sort_order)}`;
             selected_loras.forEach(lora => {
                 url += `&selected_loras=${encodeURIComponent(lora)}`;
             });
@@ -63,7 +63,7 @@ const LocalLoraOnlyGalleryNode = {
     async updateMetadata(lora_name, data) {
         try {
             const body = { lora_name, ...data };
-            await api.fetchApi("/localloragallery/update_metadata", {
+            await api.fetchApi("/wzq/localloragallery/update_metadata", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
@@ -75,7 +75,7 @@ const LocalLoraOnlyGalleryNode = {
 
     async setUiState(nodeId, galleryId, state) {
         try {
-            await api.fetchApi("/localloragallery/set_ui_state", {
+            await api.fetchApi("/wzq/localloragallery/set_ui_state", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
@@ -274,7 +274,7 @@ const LocalLoraOnlyGalleryNode = {
                                 </div>
                             </div>
 
-                            <div class="locallora-controls-row">
+                            <div class="locallora-controls-row" style="flex-wrap: wrap;">
                                 <button class="tag-filter-mode-btn" title="Click to switch filter mode">OR</button>
                                 <div class="tag-filter-input-wrapper">
                                     <input type="text" class="tag-filter-input" placeholder="Filter by Tag...">
@@ -289,6 +289,11 @@ const LocalLoraOnlyGalleryNode = {
                                 </div>
                                 <select class="folder-filter-select" style="max-width: 150px;">
                                     <option value="">All Folders</option>
+                                </select>
+                                <select class="sort-order-select" title="Sort by name or LoRA file modification date" style="max-width: 160px;">
+                                    <option value="name">Name (A–Z)</option>
+                                    <option value="date_desc">File Date (Newest)</option>
+                                    <option value="date_asc">File Date (Oldest)</option>
                                 </select>
                                 <button class="toggle-gallery-btn" title="Toggle Gallery" style="margin-left: auto; flex-shrink: 0;">Hide Gallery</button>
                             </div>
@@ -318,6 +323,7 @@ const LocalLoraOnlyGalleryNode = {
             const selectedCountEl = widgetContainer.querySelector(".selected-count");
             const clearTagFilterBtn = widgetContainer.querySelector(".clear-tag-filter-btn");
             const folderFilterSelect = widgetContainer.querySelector(".folder-filter-select");
+            const sortOrderSelect = widgetContainer.querySelector(".sort-order-select");
             const savePresetBtn = widgetContainer.querySelector(".save-preset-btn");
             const loadPresetBtn = widgetContainer.querySelector(".load-preset-btn");
             const presetDropdown = widgetContainer.querySelector(".preset-dropdown");
@@ -326,7 +332,8 @@ const LocalLoraOnlyGalleryNode = {
                 const stateToSave = {
                     filter_tag: tagFilterInput.value,
                     filter_mode: tagFilterModeBtn.textContent,
-                    filter_folder: folderFilterSelect.value
+                    filter_folder: folderFilterSelect.value,
+                    sort_order: sortOrderSelect.value
                 };
                 LocalLoraOnlyGalleryNode.setUiState(this.id, this.properties.lora_gallery_unique_id, stateToSave);
                 fetchAndRender(false);
@@ -390,7 +397,7 @@ const LocalLoraOnlyGalleryNode = {
                 syncBtn.classList.add('loading');
             
                 try {
-                    const response = await api.fetchApi("/localloragallery/sync_civitai", {
+                    const response = await api.fetchApi("/wzq/localloragallery/sync_civitai", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ lora_name: loraName }),
@@ -607,8 +614,12 @@ const LocalLoraOnlyGalleryNode = {
                 };
             };
             
+            let refreshPending = false;
             const fetchAndRender = async (append = false) => {
-                if (this.isLoading) return;
+                if (this.isLoading) {
+                    if (!append) refreshPending = true;
+                    return;
+                }
                 const pageToFetch = append ? this.currentPage + 1 : 1;
                 if (append && pageToFetch > this.totalPages) return;
 
@@ -621,8 +632,15 @@ const LocalLoraOnlyGalleryNode = {
                     folderFilterSelect.value, 
                     pageToFetch, 
                     this.loraData.map(item => item.lora),
-                    currentSearchTerm
+                    currentSearchTerm,
+                    sortOrderSelect.value
                 );
+
+                if (refreshPending) {
+                    refreshPending = false;
+                    await fetchAndRender(false);
+                    return;
+                }
 
                 if (append) {
                     const existingNames = new Set(this.availableLoras.map(l => l.name));
@@ -643,7 +661,7 @@ const LocalLoraOnlyGalleryNode = {
 
             const loadAllTags = async () => {
                 try {
-                    const response = await api.fetchApi("/localloragallery/get_all_tags");
+                    const response = await api.fetchApi("/wzq/localloragallery/get_all_tags");
                     const data = await response.json();
                     multiSelectTagDropdown.innerHTML = '';
                     if (data.tags) {
@@ -694,7 +712,7 @@ const LocalLoraOnlyGalleryNode = {
                         e.stopPropagation();
                         e.preventDefault();
                         if (confirm(`Are you sure you want to delete preset "${name}"?`)) {
-                            const res = await api.fetchApi("/localloragallery/delete_preset", {
+                            const res = await api.fetchApi("/wzq/localloragallery/delete_preset", {
                                 method: "POST", headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ name }),
                             });
@@ -741,7 +759,7 @@ const LocalLoraOnlyGalleryNode = {
             
             const loadPresets = async () => {
                 try {
-                    const res = await api.fetchApi("/localloragallery/get_presets");
+                    const res = await api.fetchApi("/wzq/localloragallery/get_presets");
                     const presets = await res.json();
                     renderPresets(presets);
                 } catch (e) { console.error("LocalLoraGallery: Failed to load presets", e); }
@@ -825,10 +843,11 @@ const LocalLoraOnlyGalleryNode = {
                     lora_stack: [],
                     filter_tag: "",
                     filter_mode: "OR",
-                    filter_folder: ""
+                    filter_folder: "",
+                    sort_order: "name"
                 };
                 try {
-                    const res = await api.fetchApi(`/localloragallery/get_ui_state?node_id=${this.id}&gallery_id=${this.properties.lora_gallery_unique_id}`);
+                    const res = await api.fetchApi(`/wzq/localloragallery/get_ui_state?node_id=${this.id}&gallery_id=${this.properties.lora_gallery_unique_id}`);
                     const loadedState = await res.json();
                     initialState = { ...initialState, ...loadedState };
                 } catch(e) { 
@@ -856,6 +875,7 @@ const LocalLoraOnlyGalleryNode = {
                 if (widget) widget.value = selectionJson;
 
                 tagFilterInput.value = initialState.filter_tag;
+                sortOrderSelect.value = initialState.sort_order;
                 if (initialState.filter_mode === "AND") {
                     tagFilterModeBtn.textContent = "AND";
                     tagFilterModeBtn.style.backgroundColor = "#D97706";
@@ -1027,6 +1047,7 @@ const LocalLoraOnlyGalleryNode = {
                 });
                 
                 folderFilterSelect.addEventListener("change", saveStateAndFetch);
+                sortOrderSelect.addEventListener("change", saveStateAndFetch);
 
                 tagFilterModeBtn.addEventListener("click", () => {
                     if (tagFilterModeBtn.textContent === "OR") {
@@ -1042,7 +1063,7 @@ const LocalLoraOnlyGalleryNode = {
                 savePresetBtn.addEventListener("click", async () => {
                     const presetName = prompt("Enter a name for this preset:", "");
                     if (presetName && this.loraData.length > 0) {
-                        const res = await api.fetchApi("/localloragallery/save_preset", {
+                        const res = await api.fetchApi("/wzq/localloragallery/save_preset", {
                             method: "POST", headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ name: presetName, data: this.loraData }),
                         });

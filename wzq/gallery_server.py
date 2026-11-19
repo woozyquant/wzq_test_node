@@ -1,22 +1,22 @@
 """Local LoRA Gallery 服务端。
 
-前端的 ``js/Local_Lora_Only_Gallery.js`` 依赖一组 ``/localloragallery/*`` 接口
+前端的 ``js/Local_Lora_Only_Gallery.js`` 依赖一组 ``/wzq/localloragallery/*`` 接口
 （列出 LoRA、标签、预设、UI 状态、元数据、Civitai 同步、预览图）。这些接口在本
 仓库中原本并不存在，导致节点初始化时 ``get_loras`` 返回空 body、前端
 ``response.json()`` 解析失败，图库永远不显示任何 LoRA。本模块补齐这套后端。
 
 前端契约（与 js/Local_Lora_Only_Gallery.js 对应）：
 
-- ``GET  /localloragallery/get_loras``      -> {loras, folders, total_pages, current_page}
-- ``GET  /localloragallery/get_all_tags``   -> {tags}
-- ``GET  /localloragallery/get_presets``    -> {name: [stack...]}          （直接是预设字典）
-- ``GET  /localloragallery/get_ui_state``   -> {lora_stack, filter_tag, filter_mode, filter_folder, is_collapsed}
-- ``POST /localloragallery/set_ui_state``   -> {status}
-- ``POST /localloragallery/update_metadata``-> {status}
-- ``POST /localloragallery/save_preset``    -> {presets}
-- ``POST /localloragallery/delete_preset``  -> {presets}
-- ``POST /localloragallery/sync_civitai``   -> {status, metadata}
-- ``GET  /localloragallery/preview``        -> 本地 LoRA 同目录的预览图/视频
+- ``GET  /wzq/localloragallery/get_loras``      -> {loras, folders, total_pages, current_page}
+- ``GET  /wzq/localloragallery/get_all_tags``   -> {tags}
+- ``GET  /wzq/localloragallery/get_presets``    -> {name: [stack...]}          （直接是预设字典）
+- ``GET  /wzq/localloragallery/get_ui_state``   -> {lora_stack, filter_tag, filter_mode, filter_folder, sort_order, is_collapsed}
+- ``POST /wzq/localloragallery/set_ui_state``   -> {status}
+- ``POST /wzq/localloragallery/update_metadata``-> {status}
+- ``POST /wzq/localloragallery/save_preset``    -> {presets}
+- ``POST /wzq/localloragallery/delete_preset``  -> {presets}
+- ``POST /wzq/localloragallery/sync_civitai``   -> {status, metadata}
+- ``GET  /wzq/localloragallery/preview``        -> 本地 LoRA 同目录的预览图/视频
 
 持久化：``<user>/wzq_test_node/lora_gallery.json``，与模型目录分离，避免污染 LoRA 目录。
 """
@@ -65,10 +65,34 @@ def _empty_store() -> dict:
     return {"metadata": {}, "presets": {}, "ui_state": {}}
 
 
+def _import_gallery_store() -> dict:
+    """Preserve data previously saved through the other gallery's shared routes."""
+    directory = Path(__file__).resolve().parents[2] / "ComfyUI_Local_Lora_Gallery"
+    store = _empty_store()
+    for key in store:
+        path = directory / f"lora_gallery_{key}.json"
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if key == "ui_state":
+            for old_key, state in data.items():
+                if "_" in old_key:
+                    gallery_id, node_id = old_key.rsplit("_", 1)
+                    store[key][f"{node_id}:{gallery_id}"] = state
+        else:
+            store[key] = data
+    return store
+
+
 def _load_store() -> dict:
     path = _store_path()
     if not path.is_file():
-        return _empty_store()
+        return _import_gallery_store()
     try:
         with path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
@@ -218,7 +242,7 @@ def _folder_of(relative_path: str) -> str:
 
 def _preview_route(relative_path: str, preview_name: str) -> str:
     query = urllib.parse.urlencode({"file": relative_path, "name": preview_name})
-    return f"/localloragallery/preview?{query}"
+    return f"/wzq/localloragallery/preview?{query}"
 
 
 def _build_entry(relative_path: str, metadata: dict) -> dict:
@@ -293,13 +317,14 @@ def _parse_selected(request) -> list[str]:
 # 路由
 # --------------------------------------------------------------------------- #
 
-@PromptServer.instance.routes.get("/localloragallery/get_loras")
+@PromptServer.instance.routes.get("/wzq/localloragallery/get_loras")
 async def localloragallery_get_loras(request):
     query = request.rel_url.query
     filter_tag = _normalise_tags(query.get("filter_tag", ""))
     mode = (query.get("mode", "OR") or "OR").upper()
     folder = (query.get("folder", "") or "").replace("\\", "/").strip("/")
     name_filter = (query.get("name_filter", "") or "").strip().lower()
+    sort_order = query.get("sort_order", "name")
     try:
         page = max(1, int(query.get("page", 1)))
     except (TypeError, ValueError):
@@ -319,8 +344,20 @@ async def localloragallery_get_loras(request):
             if not _matches_tags(entry, filter_tag, mode) and entry["name"] not in selected_set:
                 continue
             filtered.append(entry)
-        # 勾选中的 LoRA 永远排在最前，避免翻页后被过滤掉而"消失"
-        filtered.sort(key=lambda item: (item["name"] not in selected_set, item["name"].lower()))
+        if sort_order in ("date_desc", "date_asc"):
+            def date_key(item):
+                full_path = folder_paths.get_full_path("loras", item["name"])
+                try:
+                    modified = os.path.getmtime(full_path) if full_path else None
+                except OSError:
+                    modified = None
+                timestamp = modified if modified is not None else 0
+                return (modified is None, -timestamp if sort_order == "date_desc" else timestamp, item["name"].lower())
+
+            filtered.sort(key=date_key)
+        else:
+            # 名称排序时保留已选 LoRA 置顶；日期排序时严格按文件修改时间排列。
+            filtered.sort(key=lambda item: (item["name"] not in selected_set, item["name"].lower()))
         total_pages = max(1, (len(filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
         start = (page - 1) * PAGE_SIZE
         return {
@@ -337,7 +374,7 @@ async def localloragallery_get_loras(request):
         return web.json_response({"error": str(error)}, status=500)
 
 
-@PromptServer.instance.routes.get("/localloragallery/preview")
+@PromptServer.instance.routes.get("/wzq/localloragallery/preview")
 async def localloragallery_preview(request):
     """Serve a preview file that sits next to a LoRA model."""
     relative = request.rel_url.query.get("file", "")
@@ -369,7 +406,7 @@ async def localloragallery_preview(request):
     })
 
 
-@PromptServer.instance.routes.get("/localloragallery/get_all_tags")
+@PromptServer.instance.routes.get("/wzq/localloragallery/get_all_tags")
 async def localloragallery_get_all_tags(request):
     def collect():
         counts: dict[str, int] = {}
@@ -385,7 +422,7 @@ async def localloragallery_get_all_tags(request):
         return web.json_response({"tags": [], "error": str(error)}, status=500)
 
 
-@PromptServer.instance.routes.post("/localloragallery/update_metadata")
+@PromptServer.instance.routes.post("/wzq/localloragallery/update_metadata")
 async def localloragallery_update_metadata(request):
     try:
         body = await request.json()
@@ -413,7 +450,7 @@ async def localloragallery_update_metadata(request):
     return web.json_response(await asyncio.to_thread(_mutate_store, mutate))
 
 
-@PromptServer.instance.routes.get("/localloragallery/get_presets")
+@PromptServer.instance.routes.get("/wzq/localloragallery/get_presets")
 async def localloragallery_get_presets(request):
     def read():
         presets = _load_store()["presets"]
@@ -422,7 +459,7 @@ async def localloragallery_get_presets(request):
     return web.json_response(await asyncio.to_thread(read))
 
 
-@PromptServer.instance.routes.post("/localloragallery/save_preset")
+@PromptServer.instance.routes.post("/wzq/localloragallery/save_preset")
 async def localloragallery_save_preset(request):
     try:
         body = await request.json()
@@ -442,7 +479,7 @@ async def localloragallery_save_preset(request):
     return web.json_response(await asyncio.to_thread(_mutate_store, mutate))
 
 
-@PromptServer.instance.routes.post("/localloragallery/delete_preset")
+@PromptServer.instance.routes.post("/wzq/localloragallery/delete_preset")
 async def localloragallery_delete_preset(request):
     try:
         body = await request.json()
@@ -457,7 +494,7 @@ async def localloragallery_delete_preset(request):
     return web.json_response(await asyncio.to_thread(_mutate_store, mutate))
 
 
-@PromptServer.instance.routes.get("/localloragallery/get_ui_state")
+@PromptServer.instance.routes.get("/wzq/localloragallery/get_ui_state")
 async def localloragallery_get_ui_state(request):
     node_id = str(request.rel_url.query.get("node_id", ""))
     gallery_id = str(request.rel_url.query.get("gallery_id", ""))
@@ -469,6 +506,7 @@ async def localloragallery_get_ui_state(request):
             "filter_tag": "",
             "filter_mode": "OR",
             "filter_folder": "",
+            "sort_order": "name",
             "is_collapsed": False,
         }
         state = _load_store()["ui_state"].get(key)
@@ -479,7 +517,7 @@ async def localloragallery_get_ui_state(request):
     return web.json_response(await asyncio.to_thread(read))
 
 
-@PromptServer.instance.routes.post("/localloragallery/set_ui_state")
+@PromptServer.instance.routes.post("/wzq/localloragallery/set_ui_state")
 async def localloragallery_set_ui_state(request):
     try:
         body = await request.json()
@@ -492,7 +530,7 @@ async def localloragallery_set_ui_state(request):
         state = {}
 
     def mutate(store: dict):
-        store["ui_state"][key] = state
+        store["ui_state"].setdefault(key, {}).update(state)
         return {"status": "ok"}
 
     return web.json_response(await asyncio.to_thread(_mutate_store, mutate))
@@ -578,7 +616,7 @@ def _civitai_metadata(relative_path: str) -> dict:
     }
 
 
-@PromptServer.instance.routes.post("/localloragallery/sync_civitai")
+@PromptServer.instance.routes.post("/wzq/localloragallery/sync_civitai")
 async def localloragallery_sync_civitai(request):
     try:
         body = await request.json()

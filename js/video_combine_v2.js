@@ -189,10 +189,18 @@ function addVideoPreview(nodeType, isInput = true) {
       return [width, -4];
     };
     element.addEventListener("contextmenu", (event) => { event.preventDefault(); return app.canvas._mousedown_callback(event); }, true);
-    element.addEventListener("pointerdown", (event) => { event.preventDefault(); return app.canvas._mousedown_callback(event); }, true);
     element.addEventListener("mousewheel", (event) => { event.preventDefault(); return app.canvas._mousewheel_callback(event); }, true);
-    element.addEventListener("pointermove", (event) => { event.preventDefault(); return app.canvas._mousemove_callback(event); }, true);
-    element.addEventListener("pointerup", (event) => { event.preventDefault(); return app.canvas._mouseup_callback(event); }, true);
+    for (const [eventName, callback] of [["pointerdown", "_mousedown_callback"], ["pointermove", "_mousemove_callback"], ["pointerup", "_mouseup_callback"]]) {
+      element.addEventListener(eventName, (event) => {
+        // Leave native playback controls interactive instead of dragging the node.
+        if (event.target === previewWidget.videoEl) {
+          event.stopPropagation();
+          return;
+        }
+        event.preventDefault();
+        return app.canvas[callback](event);
+      });
+    }
     element.addEventListener("dragover", (event) => {
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
@@ -205,7 +213,7 @@ function addVideoPreview(nodeType, isInput = true) {
     previewWidget.parentEl.style.width = "100%";
     element.appendChild(previewWidget.parentEl);
     previewWidget.videoEl = document.createElement("video");
-    previewWidget.videoEl.controls = false;
+    previewWidget.videoEl.controls = true;
     previewWidget.videoEl.loop = true;
     previewWidget.videoEl.muted = true;
     previewWidget.videoEl.style.width = "100%";

@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { PromptManagerSnippets } from "./common/prompt_manager_snippets.js";
 
 const NODE_NAME = "WZQPromptManager";
 const NODE_WIDTH = 660;
@@ -131,8 +132,8 @@ class PromptManagerPanel {
               <div class="wzq-pm-tree"></div>
             </section>
             <section class="wzq-pm-column">
-              <div class="wzq-pm-head">提示词内容</div>
-              <div class="wzq-pm-editor-host"><textarea class="comfy-multiline-input h-full w-full wzq-pm-editor" placeholder="在这里输入提示词..."></textarea></div>
+              <div class="wzq-pm-head">提示词内容<button class="wzq-pm-snippet-tool" type="button" title="管理片段库" aria-label="管理片段库"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.5 7-5 5 5 5M15.5 7l5 5-5 5M14 4 10 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+              <div class="wzq-pm-editor-host"><textarea class="comfy-multiline-input h-full w-full wzq-pm-editor" placeholder="在这里输入提示词，输入 #片段名 可插入片段..."></textarea></div>
               <div class="wzq-pm-fields">
                 <span>名称</span>
                 <input class="wzq-pm-name" type="text" maxlength="128" placeholder="提示词名称">
@@ -173,6 +174,7 @@ class PromptManagerPanel {
         this.tree.addEventListener("scroll", () => this.scheduleTreeWindowRender());
         this.tree.addEventListener("click", (event) => this.handleTreeClick(event));
         this.editor.addEventListener("input", () => this.updatePrompt(this.editor.value));
+        this.snippets = new PromptManagerSnippets(root, this.editor, root.querySelector(".wzq-pm-snippet-tool"));
         this.nameInput.addEventListener("input", () => {
             this.persist();
             this.updateRenameButton();
@@ -189,7 +191,7 @@ class PromptManagerPanel {
         this.handleCanvasWheel = (event) => {
             event.stopPropagation();
             // Preserve native list scrolling without forwarding the wheel to the canvas.
-            if (this.tree.contains(event.target)) return;
+            if (this.tree.contains(event.target) || this.snippets.menu.contains(event.target)) return;
             event.preventDefault();
             app.canvas?.processMouseWheel?.(event);
         };
@@ -207,6 +209,7 @@ class PromptManagerPanel {
     }
 
     restore() {
+        this.snippets.closeMenu();
         const promptWidget = findWidget(this.node, "prompt");
         this.editor.value = String(promptWidget?.value || "");
         let state = {};
@@ -433,6 +436,7 @@ class PromptManagerPanel {
     }
 
     startNewPrompt() {
+        this.snippets.closeMenu();
         this.selectedPath = "";
         this.editor.value = "";
         this.nameInput.value = currentPromptName();
@@ -451,6 +455,7 @@ class PromptManagerPanel {
             const payload = await jsonResponse(response);
             this.selectedPath = payload.path;
             this.editor.value = payload.content || "";
+            this.snippets.closeMenu();
             this.nameInput.value = payload.name || "";
             this.savedCategory = payload.category || "";
             if ([...this.categorySelect.options].some((option) => option.value === this.savedCategory)) {
@@ -545,6 +550,7 @@ class PromptManagerPanel {
     }
 
     destroy() {
+        this.snippets.destroy();
         this.requestSerial += 1;
         clearTimeout(this.searchTimer);
         if (this.treeRenderFrame) cancelAnimationFrame(this.treeRenderFrame);
