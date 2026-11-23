@@ -1,7 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
-const NODE_NAME = "WZQWorkflowTimer";
+const NODE_NAMES = new Set(["WZQWorkflowTimer", "WZQWorkflowTimerSimple"]);
 const ID_PROPERTY = "wzq_timer_id";
 const RESULT_PROPERTY = "wzq_timer_result";
 const panels = new Set();
@@ -111,7 +111,7 @@ function handleExecution(type, detail, receivedAt = performance.now()) {
 
 function timerIds(workflow) {
     return [...new Set((workflow?.nodes || [])
-        .filter(node => node.type === NODE_NAME && node.mode !== 2 && node.mode !== 4)
+        .filter(node => NODE_NAMES.has(node.type) && node.mode !== 2 && node.mode !== 4)
         .map(node => node.properties?.[ID_PROPERTY]).filter(id => states.has(id)))];
 }
 
@@ -134,9 +134,12 @@ async function recoverDisconnectedJobs() {
 class WorkflowTimerPanel {
     constructor(node) {
         this.node = node;
+        this.simple = (node.comfyClass || node.type) === "WZQWorkflowTimerSimple";
         this.root = document.createElement("div");
-        this.root.className = "wzq-workflow-timer";
-        this.root.innerHTML = `
+        this.root.className = `wzq-workflow-timer${this.simple ? " wzq-workflow-timer-simple" : ""}`;
+        this.root.innerHTML = this.simple ? `
+            <div class="wzq-timer-clock" role="timer" aria-label="本次生成耗时"><span class="wzq-timer-main"></span><span class="wzq-timer-fraction"></span></div>
+            <div class="wzq-timer-previous-row"><span class="wzq-timer-previous-label">上次</span><span class="wzq-timer-clock" aria-label="上次耗时"><span class="wzq-timer-previous-main"></span><span class="wzq-timer-fraction wzq-timer-previous-fraction"></span></span></div>` : `
             <div class="wzq-timer-head"><span class="wzq-timer-status"><span class="wzq-timer-dot"></span><span class="wzq-timer-status-text" role="status" aria-live="polite"></span></span><span class="wzq-timer-scope">整个工作流</span></div>
             <div class="wzq-timer-label">本次生成耗时</div>
             <div class="wzq-timer-clock" role="timer" aria-label="本次生成耗时"><span class="wzq-timer-main"></span><span class="wzq-timer-fraction"></span></div>
@@ -149,13 +152,15 @@ class WorkflowTimerPanel {
         this.start = this.root.querySelector(".wzq-timer-start");
         this.end = this.root.querySelector(".wzq-timer-end");
         this.previous = this.root.querySelector(".wzq-timer-previous");
+        this.previousMain = this.root.querySelector(".wzq-timer-previous-main");
+        this.previousFraction = this.root.querySelector(".wzq-timer-previous-fraction");
         node.addDOMWidget("wzq_workflow_timer", "div", this.root, {
-            serialize: false, hideOnZoom: false, getMinHeight: () => 300,
+            serialize: false, hideOnZoom: false, getMinHeight: () => this.simple ? 72 : 300,
         });
         node.isVirtualNode = true;
         node.minWidth = 340;
-        node.minHeight = 340;
-        node.setSize([Math.max(340, node.size[0]), Math.max(340, node.size[1])]);
+        node.minHeight = this.simple ? 112 : 340;
+        node.setSize([Math.max(340, node.size[0]), this.simple ? node.minHeight : Math.max(node.minHeight, node.size[1])]);
         panels.add(this);
         this.bind();
     }
@@ -189,9 +194,16 @@ class WorkflowTimerPanel {
 
     render(state) {
         this.root.dataset.status = state.status;
+        this.renderClock(state);
+        if (this.simple) {
+            const previous = state.previous == null ? "—" : formatDuration(state.previous);
+            const point = previous.indexOf(".");
+            this.previousMain.textContent = point < 0 ? previous : previous.slice(0, point);
+            this.previousFraction.textContent = point < 0 ? "" : previous.slice(point);
+            return;
+        }
         this.status.textContent = labels[state.status];
         this.label.textContent = state.status === "running" ? "本次已运行" : state.status === "disconnected" ? "最后确认耗时" : "本次生成耗时";
-        this.renderClock(state);
         this.start.textContent = formatTime(state.start);
         this.end.textContent = state.status === "running" ? "运行中…" : state.status === "disconnected" ? "待确认" : formatTime(state.end);
         this.previous.textContent = state.previous == null ? "—" : formatDuration(state.previous);
@@ -260,7 +272,7 @@ app.registerExtension({
         });
     },
     beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name !== NODE_NAME) return;
+        if (!NODE_NAMES.has(nodeData.name)) return;
         const created = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             const result = created?.apply(this, arguments);
@@ -271,6 +283,7 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function () {
             const result = configured?.apply(this, arguments);
             this._wzqWorkflowTimerPanel?.bind();
+            if (this._wzqWorkflowTimerPanel?.simple) this.setSize([this.size[0], this.minHeight]);
             return result;
         };
         const removed = nodeType.prototype.onRemoved;
@@ -280,6 +293,6 @@ app.registerExtension({
         };
     },
     nodeCreated(node) {
-        if ((node.comfyClass || node.type) === NODE_NAME) attachPanel(node);
+        if (NODE_NAMES.has(node.comfyClass || node.type)) attachPanel(node);
     },
 });

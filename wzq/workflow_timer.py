@@ -1,5 +1,7 @@
 """Workflow timing is displayed by the frontend execution-event listener."""
 
+from comfy_api.latest import io
+
 from . import categories
 
 
@@ -15,3 +17,20 @@ class WZQWorkflowTimer:
 
     def execute(self):
         return ()
+
+
+class WZQWorkflowTimerSimple(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="WZQWorkflowTimerSimple",
+            display_name="WZQ 工作流计时器（简化版）",
+            category=categories.TOOLS,
+            description=WZQWorkflowTimer.DESCRIPTION,
+            inputs=[],
+            outputs=[],
+        )
+
+    @classmethod
+    def execute(cls):
+        return io.NodeOutput()

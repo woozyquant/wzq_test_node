@@ -33,3 +33,9 @@
     border-top: 1px solid var(--border-color, #424650); padding-top: 11px;
     display: flex; justify-content: space-between; gap: 8px; margin-top: auto;
 }
+.wzq-workflow-timer-simple { padding: 4px 12px; gap: 2px; text-align: center; justify-content: center; }
+.wzq-workflow-timer-simple .wzq-timer-clock { padding: 0; line-height: 1.1; }
+.wzq-workflow-timer-simple .wzq-timer-previous-row { display: flex; align-items: baseline; justify-content: center; gap: 12px; }
+.wzq-workflow-timer-simple .wzq-timer-previous-row .wzq-timer-clock { font: inherit; letter-spacing: normal; }
+.wzq-workflow-timer-simple .wzq-timer-previous-row .wzq-timer-fraction { font: inherit; opacity: 1; }
+.wzq-workflow-timer-simple .wzq-timer-previous-label { font-size: 12px; opacity: .72; white-space: nowrap; }

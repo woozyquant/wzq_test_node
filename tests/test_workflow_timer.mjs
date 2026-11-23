@@ -11,6 +11,7 @@ async function createTimerEnvironment(queuePrompt = async () => ({ prompt_id: "j
     class Element {
         constructor() { this.dataset = {}; this.children = new Map(); this.textContent = ""; }
         querySelector(selector) {
+            if (!this.innerHTML?.includes(selector.slice(1))) return null;
             if (!this.children.has(selector)) this.children.set(selector, new Element());
             return this.children.get(selector);
         }
@@ -42,19 +43,24 @@ async function createTimerEnvironment(queuePrompt = async () => ({ prompt_id: "j
     await module.evaluate();
     extension.setup();
 
-    class Node {
-        constructor(properties = {}) {
-            this.type = "WZQWorkflowTimer";
-            this.properties = {};
-            this.size = [140, 80];
-            this.onNodeCreated();
-            this.properties = { ...properties };
-            this.onConfigure();
+    function nodeClass(nodeName) {
+        class Node {
+            constructor(properties = {}) {
+                this.type = nodeName;
+                this.properties = {};
+                this.size = [140, 80];
+                this.onNodeCreated();
+                this.properties = { ...properties };
+                this.onConfigure();
+            }
+            addDOMWidget(name, type, root, options) { this.widget = { name, type, root, options }; }
+            setSize(size) { this.size = size; }
         }
-        addDOMWidget(name, type, root, options) { this.widget = { name, type, root, options }; }
-        setSize(size) { this.size = size; }
+        extension.beforeRegisterNodeDef(Node, { name: nodeName });
+        return Node;
     }
-    extension.beforeRegisterNodeDef(Node, { name: "WZQWorkflowTimer" });
+    const Node = nodeClass("WZQWorkflowTimer");
+    const SimpleNode = nodeClass("WZQWorkflowTimerSimple");
     function emit(type, detail) {
         api.dispatchEvent(new CustomEvent(type, { detail }));
     }
@@ -62,8 +68,43 @@ async function createTimerEnvironment(queuePrompt = async () => ({ prompt_id: "j
         return { nodes: nodes.map(node => ({ type: node.type, mode: node.mode || 0, properties: { ...node.properties } })) };
     }
     function text(node, field) { return node.widget.root.querySelector(`.wzq-timer-${field}`).textContent; }
-    return { api, Node, emit, workflow, text, intervals, advance: milliseconds => { now += milliseconds; } };
+    return { api, Node, SimpleNode, emit, workflow, text, intervals, advance: milliseconds => { now += milliseconds; } };
 }
+
+test("the simple timer shares execution timing with the original and restores the previous run", async () => {
+    let job = 0;
+    const env = await createTimerEnvironment(async () => ({ prompt_id: `job-${++job}` }));
+    const original = new env.Node();
+    const simple = new env.SimpleNode();
+    assert.equal(simple.isVirtualNode, true);
+    assert.equal(simple.widget.options.getMinHeight(), 72);
+    assert.ok(simple.size[1] < original.size[1]);
+    assert.equal(simple.widget.root.querySelector(".wzq-timer-head"), null);
+    assert.equal(simple.widget.root.querySelector(".wzq-timer-details"), null);
+    assert.equal(env.text(simple, "previous-main"), "—");
+    const payload = { workflow: env.workflow(original, simple), output: {} };
+    await env.api.queuePrompt(0, payload);
+    env.emit("execution_start", { prompt_id: "job-1", timestamp: 1000 });
+    env.advance(15420);
+    for (const tick of env.intervals) tick();
+    assert.equal(env.text(simple, "main"), "00:00:15");
+    assert.equal(env.text(simple, "fraction"), ".42");
+    env.emit("execution_success", { prompt_id: "job-1", timestamp: 16420 });
+    assert.equal(env.text(simple, "main"), env.text(original, "main"));
+    await env.api.queuePrompt(0, payload);
+    env.emit("execution_start", { prompt_id: "job-2", timestamp: 20000 });
+    assert.equal(env.text(simple, "previous-main"), "00:00:15");
+    assert.equal(env.text(simple, "previous-fraction"), ".42");
+    env.emit("execution_success", { prompt_id: "job-2", timestamp: 22000 });
+    const saved = structuredClone(simple.properties);
+    simple.onRemoved();
+    const loaded = await createTimerEnvironment();
+    const restored = new loaded.SimpleNode(saved);
+    assert.equal(loaded.text(restored, "main"), "00:00:02");
+    assert.equal(loaded.text(restored, "previous-main"), "00:00:15");
+    assert.equal(loaded.text(restored, "previous-fraction"), ".42");
+    assert.equal(env.intervals.size, 0);
+});
 
 test("waits for execution, uses server timestamps, and preserves the previous run", async () => {
     let job = 0;

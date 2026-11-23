@@ -26,6 +26,7 @@ from .wzq.canvas_extend import WZQCanvasExtend
 from .wzq.image_loader import WZQImageLoader
 from .wzq.audio_loader import WZQAudioLoader
 from .wzq.smart_image_size import WZQSmartImageSize
+from .wzq.cut import WZQCut
 from .wzq.video_combine_v2 import VideoCombineV2
 from .wzq.minimax_h3_prompt import (
     WZQMiniMaxH3MediaInput,
@@ -34,7 +35,7 @@ from .wzq.minimax_h3_prompt import (
 )
 from .wzq.prompt_manager import WZQPromptManager
 from .wzq.folder_shortcuts import WZQFolderShortcuts
-from .wzq.workflow_timer import WZQWorkflowTimer
+from .wzq.workflow_timer import WZQWorkflowTimer, WZQWorkflowTimerSimple
 from .wzq.pose_gallery import WZQPoseGallery
 from .wzq.clothing_gallery import WZQClothingGallery
 
@@ -71,6 +72,7 @@ NODE_CLASS_MAPPINGS = {
     "WZQImageLoader": WZQImageLoader,
     "WZQAudioLoader": WZQAudioLoader,
     "wzq_image_out": WZQSmartImageSize,
+    "wzq_cut": WZQCut,
     "WZQMiniMaxH3Prompt": WZQMiniMaxH3Prompt,
     "WZQMiniMaxH3MediaInput": WZQMiniMaxH3MediaInput,
     "WZQMiniMaxH3MediaOutput": WZQMiniMaxH3MediaOutput,
@@ -78,6 +80,7 @@ NODE_CLASS_MAPPINGS = {
     "WZQPromptManager": WZQPromptManager,
     "WZQFolderShortcuts": WZQFolderShortcuts,
     "WZQWorkflowTimer": WZQWorkflowTimer,
+    "WZQWorkflowTimerSimple": WZQWorkflowTimerSimple,
     "wzq-pose-gallery": WZQPoseGallery,
     "wzq-clothing-gallery": WZQClothingGallery,
 }
@@ -103,6 +106,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "myReroutexxx": "Reroute (Model / VAE / CLIP)",
     "WZQFolderShortcuts": "文件夹快捷打开",
     "WZQWorkflowTimer": "WZQ 工作流计时器",
+    "WZQWorkflowTimerSimple": "WZQ 工作流计时器（简化版）",
 
     # 尺寸与潜空间
     "myImageSizexxx": "Image Size",
@@ -112,6 +116,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 
     # 图像
     "wzq_image_out": "Smart Image Size",
+    "wzq_cut": "wzq_cut",
     "myWZQCanvasExtend": "🖼️Interactive Canvas Crop / Extend",
     "myImageResizer": "Image Resizer",
     "myImageTiled": "Image Tile Batch",
